@@ -1,0 +1,53 @@
+{
+  "name": "headless-scraper",
+  "version": "2.0.0",
+  "description": "A robust headless browser scraper for Cloudflare-protected websites with modular architecture",
+  "main": "src/cli/automation.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/cli/automation.js",
+    "dev": "NODE_ENV=development node src/cli/automation.js",
+    "scrape": "node src/cli/scraper.js",
+    "process": "node src/cli/processor.js",
+    "xml": "node src/cli/xml.js",
+    "install-browsers": "playwright install",
+    "test": "echo \"Tests not implemented yet\" && exit 0",
+    "lint": "eslint src/**/*.js",
+    "clean": "node src/cli/cleanup.js",
+    "docs": "echo \"Documentation generation not implemented yet\" && exit 0"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.6.1",
+    "fs-extra": "^11.1.1",
+    "jsdom": "^23.2.0",
+    "node-fetch": "^3.3.2",
+    "p-queue": "^7.4.1",
+    "playwright": "^1.40.0",
+    "user-agents": "^1.1.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.55.0"
+  },
+  "keywords": [
+    "scraper",
+    "headless",
+    "browser",
+    "cloudflare",
+    "playwright",
+    "wordpress",
+    "content-automation",
+    "modular"
+  ],
+  "author": "Content Automation Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "test": "tests"
+  }
+}
