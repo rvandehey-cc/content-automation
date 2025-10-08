@@ -2,7 +2,7 @@
 
 A robust, enterprise-grade content automation system that scrapes web content and prepares it for WordPress import. Built with modern JavaScript and designed for scalability, maintainability, and ease of use.
 
-> ⚠️ **Important Notice**: This system was initially developed for Ford dealership websites and may require customization for different dealer groups, OEMs, and competitor website structures. See [Expansion & Customization](#-expansion--customization) for details.
+> ⚠️ **Important Notice**: This system was initially developed for limited dealership websites and may require customization for different dealer groups, OEMs, and competitor website structures. See [Expansion & Customization](#-expansion--customization) for details.
 
 ## 🎯 Overview
 
@@ -372,15 +372,6 @@ Check logs in the `logs/` directory:
 
 ## 🔧 Expansion & Customization
 
-### Current Limitations
-
-This system was initially developed for **Ford dealership websites** and contains:
-
-- **Hardcoded link patterns** optimized for automotive websites
-- **Content detection rules** specific to dealership blog structures  
-- **Cleanup patterns** targeting common dealership CMS elements
-- **URL structures** assuming automotive comparison pages
-
 ### Adaptation Required For:
 
 #### Different Dealer Groups
@@ -391,12 +382,6 @@ This system was initially developed for **Ford dealership websites** and contain
 #### Different OEMs (Original Equipment Manufacturers)
 - **Luxury brands** (BMW, Mercedes, Lexus): Different content hierarchies
 - **Truck-focused** (Ram, Chevy): Specialized content types
-- **Electric vehicle brands** (Tesla, Rivian): Unique page structures
-
-#### Competitor Websites
-- **AutoTrader, Cars.com**: Listing-based structures
-- **Manufacturer sites**: Corporate vs dealership content
-- **Review sites** (Edmunds, KBB): Rating and review systems
 
 ### Required Customizations
 
@@ -513,11 +498,6 @@ To add support for a new dealer group or OEM:
 ## 📄 License
 
 MIT License - see LICENSE file for details
-
-## 🏷️ Version History
-
-- **v2.0.0**: Complete rewrite with modular architecture, blog cleanup, enhanced content detection
-- **v1.x**: Legacy monolithic scraper (deprecated)
 
 ## 🆘 Support
 
