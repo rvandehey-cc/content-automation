@@ -372,6 +372,13 @@ Check logs in the `logs/` directory:
 
 ## 🔧 Expansion & Customization
 
+### Current Limitations
+
+- **Hardcoded link patterns** optimized for automotive websites
+- **Content detection rules** specific to dealership blog structures  
+- **Cleanup patterns** targeting common dealership CMS elements
+- **URL structures** assuming automotive comparison pages
+
 ### Adaptation Required For:
 
 #### Different Dealer Groups
@@ -387,12 +394,12 @@ Check logs in the `logs/` directory:
 
 #### 1. Link Pattern Updates (`src/core/processor.js`)
 ```javascript
-// Current (Ford-specific)
+// Current
 if (hrefLower.includes('new')) {
   newHref = '/new-vehicles/';
 }
 
-// Needs expansion for other brands
+// Needs expansion for other slug types
 if (hrefLower.includes('new')) {
   newHref = this.config.linkMappings?.new || '/new-vehicles/';
 }
@@ -438,9 +445,11 @@ export const DEALER_CONFIGS = {
 ```
 
 #### Plugin Architecture
+Future expansion needs:
+- **Date detection**: detects date in post and imports accourdingly, removes date from html.
 Future enhancements could include:
 - **Brand-specific plugins**: Modular processors for different dealers
-- **CMS adapters**: Specialized handlers for WordPress, Drupal, etc.
+- **CMS adapters**: Specialized handlers for WordPress
 - **Content type extensions**: Custom rules for reviews, specifications, etc.
 
 ### Contributing New Dealer Support
@@ -495,11 +504,6 @@ To add support for a new dealer group or OEM:
 4. Update documentation
 5. Submit a pull request
 
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🆘 Support
 
 ### WordPress Plugin Requirements
 - **Really Simple CSV Importer**: v1.3+ by Takuro Hishikawa

@@ -1,0 +1,278 @@
+---
+description: Development patterns, coding guidelines, and common tasks for the content automation pipeline
+globs: **/*.js
+alwaysApply: false
+---
+
+# Development Guide - Content Automation Pipeline
+
+## 🛠️ Development Patterns & Best Practices
+
+### Service Architecture Pattern
+All core functionality is organized into service classes following this pattern:
+
+```javascript
+export class ServiceName {
+  constructor(options = {}) {
+    this.config = { ...config.get('module'), ...options };
+  }
+  
+  async mainMethod() {
+    try {
+      // Main logic with error handling
+      const results = await this._privateMethod();
+      return results;
+    } catch (error) {
+      throw new ServiceError('User message', error);
+    }
+  }
+  
+  async _privateMethod() {
+    // Implementation details
+  }
+}
+```
+
+### Error Handling Standards
+- Use custom error types: `ScraperError`, `ProcessingError`, `CSVGenerationError`
+- Always wrap operations in try-catch with meaningful messages
+- Use `handleError()` utility for consistent error processing
+- Implement retry logic with `retry()` utility for network operations
+
+### Configuration Management
+- All configuration goes through `src/config/index.js`
+- Support environment variable overrides
+- Use `config.get('module')` to access module-specific config
+- Support runtime updates with `config.update(module, updates)`
+
+### Progress Tracking
+For long-running operations, always use `ProgressTracker`:
+
+```javascript
+const progress = new ProgressTracker(total, 'Operation name');
+for (let i = 0; i < items.length; i++) {
+  // Process item
+  progress.update(1, `Status message`);
+}
+progress.complete();
+```
+
+## 📝 Common Development Tasks
+
+### Adding New Content Selectors
+When extending content detection:
+
+1. **Update processor config** in `src/config/index.js`
+2. **Add detection logic** in `src/core/processor.js`
+3. **Update CSV generator** in `src/core/csv-generator.js`
+4. **Test with sample content**
+
+### Adding New Link Patterns
+To support new URL patterns (non-automotive sites):
+
+1. **Locate `_updateLinks()` method** in `src/core/processor.js`
+2. **Add new patterns** to the link mapping logic
+3. **Consider making configurable** via environment variables
+4. **Update documentation**
+
+### Adding New Cleanup Rules
+To remove additional unwanted elements:
+
+1. **Add patterns** to `_removeUnwantedElements()` in `src/core/processor.js`
+2. **Test thoroughly** to avoid over-cleaning
+3. **Consider content type specificity** (posts vs pages)
+4. **Add configuration options** for toggling rules
+
+### Extending Image Processing
+To support new image formats or processing:
+
+1. **Update allowed formats** in `src/config/index.js`
+2. **Modify validation logic** in `src/core/image-downloader.js`
+3. **Update file extension handling**
+4. **Test with various image types**
+
+## 🔧 Key Utilities & Helpers
+
+### File System Operations (`src/utils/filesystem.js`)
+```javascript
+import { readJSON, writeJSON, getFiles, ensureDir } from '../utils/filesystem.js';
+
+// Read/write JSON with error handling
+const data = await readJSON(filePath, defaultValue);
+await writeJSON(filePath, data);
+
+// Get files with extension filter
+const htmlFiles = await getFiles(directory, '.html');
+const imageFiles = await getFiles(directory, '.jpg,.png,.gif');
+```
+
+### CLI Interactions (`src/utils/cli.js`)
+```javascript
+import { cli } from '../utils/cli.js';
+
+// User prompts
+const proceed = await cli.askPermission('Continue?', true);
+const input = await cli.askInput('Enter value:', defaultValue);
+
+// Display helpers
+cli.displayStepHeader(1, 'STEP NAME', 'Description');
+cli.displaySuccess('Success message');
+cli.displayError('Error message');
+```
+
+### Error Handling (`src/utils/errors.js`)
+```javascript
+import { handleError, retry } from '../utils/errors.js';
+
+// Retry with exponential backoff
+const result = await retry(() => riskyOperation(), maxRetries);
+
+// Standardized error handling
+const errorInfo = handleError(error, { context: 'additional info' });
+console.error(errorInfo.userMessage);
+```
+
+## 🧪 Testing & Debugging
+
+### Debug Mode
+Enable detailed logging:
+```bash
+NODE_ENV=development npm start
+```
+
+### Log Analysis
+- **Combined logs**: `logs/combined.log`
+- **Error logs**: `logs/error.log`
+- **Console output**: Real-time progress and status
+
+### Testing Individual Services
+```javascript
+// Test scraper independently
+import { HTMLScraperService } from './src/core/scraper.js';
+const scraper = new HTMLScraperService();
+const results = await scraper.scrapeUrls(['https://example.com']);
+
+// Test processor independently  
+import { ContentProcessorService } from './src/core/processor.js';
+const processor = new ContentProcessorService();
+const results = await processor.processContent();
+```
+
+### Common Debug Points
+1. **URL loading**: Check `data/urls.txt` format and content
+2. **Content extraction**: Verify CSS selectors work on target sites
+3. **Image processing**: Check network connectivity and image URLs
+4. **CSV generation**: Validate content type detection logic
+
+## 🔄 Pipeline Extension Points
+
+### Adding New Processing Steps
+To add a new step to the pipeline:
+
+1. **Create service class** following the standard pattern
+2. **Add to main pipeline** in `src/cli/automation.js`
+3. **Update configuration** in `src/config/index.js`
+4. **Add CLI integration** with user prompts
+5. **Implement error handling** and progress tracking
+
+### Custom Content Detection
+To implement custom content type detection:
+
+1. **Extend `CSVGeneratorService`** in `src/core/csv-generator.js`
+2. **Add new detection methods** (URL patterns, content analysis, etc.)
+3. **Update configuration options** for new rules
+4. **Test with diverse content types**
+
+### Brand-Specific Customization
+For supporting different dealer groups or industries:
+
+1. **Create brand configuration** in `src/config/`
+2. **Extend link mapping logic** in processor
+3. **Add brand-specific cleanup rules**
+4. **Update content detection patterns**
+5. **Create migration path** from current hardcoded values
+
+## 📦 Dependencies & Versions
+
+### Core Dependencies
+- **Playwright** (^1.40.0): Headless browser automation
+- **JSDOM** (^23.2.0): Server-side DOM manipulation  
+- **Cheerio** (^1.0.0): jQuery-like HTML parsing
+- **Winston** (^3.11.0): Structured logging
+- **fs-extra** (^11.1.1): Enhanced file operations
+
+### Development Dependencies
+- **ESLint** (^8.55.0): Code quality and style checking
+
+### Version Compatibility
+- **Node.js**: 18+ required (uses ES modules)
+- **Chrome/Chromium**: Auto-installed by Playwright
+- **OS Support**: Windows 10+, macOS 10.14+, Ubuntu 18.04+
+
+## 🔐 Security Considerations
+
+### Web Scraping Ethics
+- Respect robots.txt files
+- Implement reasonable delays between requests
+- Use appropriate User-Agent strings
+- Monitor server response and adjust accordingly
+
+### Data Handling
+- No sensitive data should be logged
+- Clean up failed files appropriately
+- Validate all user inputs (URLs, file paths)
+- Sanitize content before WordPress import
+
+### Environment Variables
+- Never commit `.env` files to repository
+- Use secure defaults for production deployment
+- Validate environment variable formats
+
+## 🚀 Performance Optimization
+
+### Memory Management
+- Process files sequentially for large datasets
+- Clean up DOM objects after processing
+- Use streaming where possible
+- Monitor memory usage during long runs
+
+### Network Optimization
+- Implement connection pooling for image downloads
+- Use concurrent downloads with rate limiting
+- Block unnecessary resources during scraping
+- Implement circuit breaker for failed requests
+
+### File System Optimization
+- Use efficient directory structures
+- Implement file cleanup routines
+- Cache frequently accessed data
+- Use appropriate file permissions
+
+## 📋 Code Review Checklist
+
+### New Service Implementation
+- [ ] Follows service architecture pattern
+- [ ] Implements proper error handling
+- [ ] Includes progress tracking for long operations
+- [ ] Has comprehensive JSDoc documentation
+- [ ] Uses configuration system appropriately
+- [ ] Includes validation of inputs
+- [ ] Handles cleanup of resources
+
+### Configuration Changes
+- [ ] Updates both defaults and environment variable support
+- [ ] Maintains backward compatibility
+- [ ] Includes validation logic
+- [ ] Updates documentation
+- [ ] Tests with various configurations
+
+### Pipeline Modifications
+- [ ] Maintains step isolation
+- [ ] Implements proper error propagation
+- [ ] Includes user feedback and progress
+- [ ] Allows for step skipping when appropriate
+- [ ] Updates final summary reporting
+
+---
+
+**Remember**: This codebase prioritizes robustness and user experience over performance. All operations should be fault-tolerant and provide clear feedback to users about progress and potential issues.

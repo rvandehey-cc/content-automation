@@ -1,0 +1,261 @@
+---
+description: Content Automation Pipeline - Comprehensive project context and workflow guide
+alwaysApply: true
+---
+
+# Content Automation Pipeline - Project Context
+
+This is a **headless web scraping and content automation system** designed to extract content from websites (primarily automotive dealership sites) and prepare it for WordPress import.
+
+## 🎯 Core Purpose
+
+**Primary Goal**: Automate the complete pipeline from web scraping to WordPress-ready content
+- Scrape HTML content from target websites
+- Download and organize images with WordPress-friendly naming
+- Sanitize HTML content (remove classes, IDs, unwanted elements)
+- Generate CSV files compatible with Really Simple CSV Importer plugin
+
+**Originally built for**: Ford dealership websites, but extensible to other dealer groups and OEMs
+
+## 🏗️ Architecture Overview
+
+### Service-Based Architecture
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    CLI Layer (automation.js)                │
+├─────────────────────────────────────────────────────────────┤
+│  HTMLScraperService  │  ContentProcessorService  │  CSV...  │
+├─────────────────────────────────────────────────────────────┤
+│           Utility Layer (errors, filesystem, cli)           │
+├─────────────────────────────────────────────────────────────┤
+│              Configuration Layer (config/index.js)          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Core Services
+
+1. **HTMLScraperService** (`src/core/scraper.js`)
+   - Uses Playwright for headless browsing
+   - Handles Cloudflare protection bypass
+   - Extracts content using CSS selectors
+   - Implements retry logic with exponential backoff
+
+2. **ImageDownloaderService** (`src/core/image-downloader.js`)
+   - Downloads images concurrently with rate limiting
+   - Organizes images with WordPress-friendly structure
+   - Creates mapping files for URL updates
+
+3. **ContentProcessorService** (`src/core/processor.js`)
+   - **AGGRESSIVE HTML cleaning**: Removes ALL classes and IDs
+   - Preserves only essential attributes (style, href, src, etc.)
+   - Updates internal links to WordPress-friendly URLs
+   - Removes blog-specific elements (navigation, dates, sidebar)
+
+4. **CSVGeneratorService** (`src/core/csv-generator.js`)
+   - Creates Really Simple CSV Importer compatible files
+   - Automatically detects content types (post vs page)
+   - Generates WordPress slugs from URLs
+
+## 🔄 Complete Workflow Pipeline
+
+### Step 1: HTML Content Scraping
+- **Input**: URLs from `data/urls.txt`
+- **Process**: Playwright scrapes content using CSS selectors
+- **Output**: Raw HTML files in `output/scraped-content/`
+
+### Step 2: Image Processing (Optional)
+- **Input**: HTML files from Step 1
+- **Process**: Extract image URLs, download with organized naming
+- **Output**: Images in `output/images/` + mapping file
+
+### Step 3: Content Sanitization
+- **Input**: Raw HTML from Step 1
+- **Process**: Aggressive cleaning, link updates, image path updates
+- **Output**: Clean HTML in `output/clean-content/`
+
+### Step 4: WordPress CSV Generation
+- **Input**: Clean HTML from Step 3
+- **Process**: Content type detection, slug generation, CSV formatting
+- **Output**: WordPress import CSV in `output/wp-ready/`
+
+## 📁 Key File Structure
+
+```
+headless-scrape/
+├── src/
+│   ├── cli/automation.js          # Main pipeline orchestrator
+│   ├── core/                      # Business logic services
+│   ├── config/index.js            # Centralized configuration
+│   └── utils/                     # Shared utilities
+├── data/
+│   ├── urls.txt                   # URLs to scrape (one per line)
+│   ├── custom-selectors.json      # Post/page detection rules
+│   └── url-mappings.json          # URL to slug mappings
+├── output/                        # Generated content (gitignored)
+│   ├── scraped-content/           # Raw HTML
+│   ├── clean-content/             # Sanitized HTML
+│   ├── images/                    # Downloaded images
+│   └── wp-ready/                  # WordPress CSV files
+└── package.json                   # Dependencies and scripts
+```
+
+## ⚙️ Configuration System
+
+### Environment Variables (.env)
+```bash
+# Scraper Configuration
+SCRAPER_HEADLESS=true
+SCRAPER_TIMEOUT=60000
+SCRAPER_MAX_RETRIES=2
+
+# Image Processing
+IMAGES_ENABLED=true
+IMAGES_MAX_CONCURRENT=5
+BYPASS_IMAGES=false
+
+# Processing
+DEALER_SLUG=your-dealership
+IMAGE_YEAR=2025
+IMAGE_MONTH=01
+```
+
+### Runtime Configuration
+- **Interactive Setup**: CLI prompts for content type selectors
+- **Persistent Storage**: Saves selectors to `data/custom-selectors.json`
+- **Dynamic Updates**: Configuration can be modified during runtime
+
+## 🎮 Common Operations
+
+### Start Full Pipeline
+```bash
+npm start                    # Interactive full pipeline
+npm run dev                  # Development mode with extra logging
+```
+
+### Individual Steps
+```bash
+npm run scrape              # HTML scraping only
+npm run process             # Content processing only
+npm run clean               # Clean all output directories
+npm run install-browsers    # Install Playwright browsers
+```
+
+### Content Type Detection
+The system uses custom CSS selectors to identify posts vs pages:
+- **Posts**: Elements with classes like `post-navigation`, `article-header`
+- **Pages**: Elements with classes like `page-header`, `static-content`
+- **Fallback**: URL pattern analysis and content analysis
+
+## 🧹 Aggressive Cleaning Strategy
+
+The processor implements an **aggressive cleaning approach** optimized for WordPress:
+
+### Removes:
+- ALL `class` and `id` attributes
+- Third-party tracking attributes
+- Blog template elements (navigation, dates, sidebar)
+- Footer content and copyright notices
+- Forms and interactive elements
+- Testimonial blocks (for posts)
+
+### Preserves:
+- `style` attributes for formatting
+- Essential link attributes (`href`, `target`)
+- Image attributes (`src`, `alt`, `width`, `height`)
+- Table structure attributes
+
+## 🔗 Link Processing Rules
+
+Internal links are automatically converted using these patterns:
+- `new` → `/new-vehicles/`
+- `used` → `/used-vehicles/`
+- `contact` → `/contact-us/`
+- `service` → `/service/`
+- `parts` → `/parts/`
+
+**Note**: These patterns are hardcoded for automotive sites and need customization for other industries.
+
+## 🚀 WordPress Integration
+
+### Required Plugin
+- **Really Simple CSV Importer** v1.3+ by Takuro Hishikawa
+- Import process: Tools → Import → CSV Importer
+
+### CSV Output Format
+Compatible with Really Simple CSV Importer with columns:
+- `post_title`: Extracted from HTML `<title>` or `<h1>`
+- `post_content`: Sanitized HTML content
+- `post_name`: Generated slug from URL
+- `post_type`: Detected as 'post' or 'page'
+- `post_status`: Set to 'publish'
+
+## ⚠️ Important Limitations & Customization Points
+
+### Current Hardcoded Elements
+1. **Link patterns**: Optimized for automotive dealership URLs
+2. **Content detection**: Uses dealership-specific selectors
+3. **Cleanup patterns**: Targets common dealership CMS elements
+
+### Requires Customization For:
+- Different dealer groups (GM, Toyota, Honda, etc.)
+- Non-automotive industries
+- Different CMS platforms
+- Custom URL structures
+
+### Extension Points
+- `src/core/processor.js`: Link mapping and cleanup rules
+- `src/core/csv-generator.js`: Content type detection logic
+- `src/config/index.js`: Default configuration values
+
+## 🐛 Common Issues & Solutions
+
+### "No URLs to scrape"
+- Check `data/urls.txt` exists and contains valid URLs
+- Ensure URLs are one per line with no extra spaces
+
+### "Cloudflare blocked request"
+- System includes bypass techniques
+- Reduce concurrency or add delays if persistent
+
+### "Content type detection incorrect"
+- Review custom selectors in CLI setup
+- Use browser dev tools to find unique class names
+- Update `data/custom-selectors.json`
+
+### "Images not downloading"
+- Verify `IMAGES_ENABLED=true` in configuration
+- Check network connectivity
+- Consider using bypass images option
+
+## 💡 Development Notes
+
+### Error Handling
+- Comprehensive error types: `ScraperError`, `ProcessingError`
+- Retry mechanisms with exponential backoff
+- Graceful degradation on failures
+- Progress tracking for long operations
+
+### Performance Optimizations
+- Sequential URL processing (prevents server overwhelming)
+- Concurrent image downloads with rate limiting
+- Resource blocking during scraping (images, fonts, media)
+- Memory-efficient streaming for large datasets
+
+### Code Standards
+- ES6+ modules with async/await
+- JSDoc documentation standards
+- Service-based architecture with dependency injection
+- Configuration-driven behavior
+
+## 🔮 Future Enhancements
+
+- Multi-brand configuration system
+- Visual selector picker tool
+- Machine learning content classification
+- Plugin architecture for different CMS platforms
+- Real-time content preview
+- A/B testing for cleanup effectiveness
+
+---
+
+**When working with this codebase**: Remember that this is a specialized tool originally built for automotive dealership content automation. Many patterns and selectors are hardcoded for this use case and will need customization for other industries or website structures.
