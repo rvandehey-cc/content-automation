@@ -214,7 +214,7 @@ export class HTMLScraperService {
       .replace(/[^a-zA-Z0-9.-]/g, '_')
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '')
-      .substring(0, 100); // Limit length
+      .substring(0, 255); // Increased limit - most filesystems support 255 chars
   }
 
   /**

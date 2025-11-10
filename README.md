@@ -12,6 +12,7 @@ This system automates the entire process of extracting content from websites and
 
 - **🌐 Robust Web Scraping**: Uses Playwright to handle modern websites, Cloudflare protection, and JavaScript-heavy content
 - **🧹 Intelligent Content Cleaning**: Removes unwanted attributes, classes, and IDs while preserving essential formatting
+- **🎯 Custom Element Removal**: Interactive prompt allows you to specify CSS selectors for elements to remove during sanitization
 - **🔗 Smart Link Processing**: Converts internal links to WordPress-friendly URLs with custom mapping
 - **📸 Image Management**: Downloads and organizes images with proper WordPress paths
 - **🤖 Content Type Detection**: Automatically classifies content as posts or pages using custom selectors
@@ -39,7 +40,10 @@ npm run install-browsers
 
 1. **Add URLs to scrape**: Edit `data/urls.txt` and add one URL per line
 2. **Run the automation**: `npm start`
-3. **Follow the prompts**: The system will guide you through content type setup
+3. **Follow the prompts**: The system will guide you through:
+   - Content type setup (post vs page identification)
+   - Custom element selectors (optional - specify elements to remove during sanitization)
+   - Image processing configuration (if enabled)
 4. **Import to WordPress**: Use the generated CSV file in `output/wp-ready/`
 5. **Cleanup past run's data**: `npm run clean`
 
@@ -55,7 +59,34 @@ When prompted, provide class names to help identify posts vs pages:
 
 > 💡 **Tip**: Use browser developer tools (F12) to inspect HTML and find unique class names
 
-### 4. WordPress Import
+### 4. Custom Element Removal
+
+During the sanitization step, you'll be prompted to specify CSS selectors for elements you want to remove or ignore:
+
+**When prompted**: After confirming HTML sanitization, you can enter custom CSS selectors
+**Examples of selectors**:
+- `.advertisement` - Remove all elements with the "advertisement" class
+- `#social-share` - Remove element with ID "social-share"
+- `[class*="popup"]` - Remove elements with "popup" anywhere in the class name
+- `div.newsletter, section.promotional` - Multiple selectors separated by commas
+- `footer .widget` - Nested selectors
+
+**How it works**:
+- Enter one selector at a time
+- Press Enter with no input to finish adding selectors
+- All matching elements will be removed before other sanitization steps
+- Selectors are processed early, so you can target classes and IDs before they're removed
+
+**Use cases**:
+- Remove advertisement blocks
+- Remove social sharing widgets
+- Remove newsletter signup forms
+- Remove promotional banners
+- Remove any site-specific elements that shouldn't be imported
+
+> 💡 **Tip**: Use browser developer tools to inspect elements and find the right selectors. The selectors work just like CSS, so you can use class names, IDs, attribute selectors, and more.
+
+### 5. WordPress Import
 
 #### Required Plugin
 Activate the **Really Simple CSV Importer** plugin found in our environment:
@@ -115,6 +146,7 @@ Activate the **Really Simple CSV Importer** plugin found in our environment:
 - **Purpose**: HTML sanitization and WordPress preparation
 - **Features**:
   - Aggressive attribute cleaning (removes all classes/IDs)
+  - **Custom element removal** - User-specified CSS selectors for targeted element removal
   - Style preservation for formatting
   - Link canonicalization and internal link conversion
   - Content type detection (post vs page)
@@ -131,6 +163,7 @@ Activate the **Really Simple CSV Importer** plugin found in our environment:
   - Title extraction and cleaning
   - Post metadata generation
   - Automatic post type detection (post vs page)
+  - **Article date extraction** - Intelligently finds and parses publish dates from content
 - **Input**: Processed HTML files
 - **Output**: WordPress CSV in `output/wp-ready/`
 
@@ -264,7 +297,8 @@ npm test                 # Run test suite (when implemented)
 The processor uses an aggressive cleaning approach optimized for WordPress import:
 
 **Removes:**
-- All `class` and `id` attributes
+- **Custom user-specified elements** (via CSS selectors provided during sanitization)
+- All `class` and `id` attributes (after custom removal)
 - Third-party tracking attributes  
 - Vendor-specific properties
 - Blog template elements (navigation, dates, sidebar)
@@ -277,6 +311,69 @@ The processor uses an aggressive cleaning approach optimized for WordPress impor
 - Essential link attributes (`href`, `target`)
 - Image attributes (`src`, `alt`, `width`, `height`)
 - Table structure attributes (`colspan`, `rowspan`)
+
+**Adds:**
+- Consistent spacing between content elements for better readability
+- Inline margin/padding styles for proper content separation
+- Conversion of Microsoft Word-style lists to proper HTML `<ul>` and `<li>` tags
+
+### Content Spacing
+
+The processor automatically adds consistent spacing to ensure proper formatting when imported into WordPress:
+
+**Uniform Spacing:** All content elements receive **20pt margin top and bottom** for optimal readability
+
+Elements that receive spacing:
+- **Paragraphs** (`<p>`) - *except those inside list items*
+- **Headings** (`<h2>` through `<h6>`)
+- **Tables** (`<table>`)
+- **Images** (`<img>`)
+- **Lists** (`<ul>`, `<ol>`) - spacing applied to container only
+- **Blockquotes** (`<blockquote>`)
+- **Content divs** (divs with text content, boxes, containers)
+
+**Excluded from spacing:**
+- Paragraphs inside `<li>` elements (prevents double spacing)
+- Table-responsive wrapper divs
+- Large container divs with nested block elements
+
+**Note:** The processor removes any existing margin-top and margin-bottom styles and replaces them with the uniform 20pt spacing. Other style properties (colors, fonts, line-height, etc.) are preserved.
+
+### Microsoft Word List Conversion
+
+Many CMS platforms export lists using Microsoft Word formatting instead of proper HTML list tags. The processor automatically detects and converts these to proper HTML:
+
+**Detects:**
+- Paragraphs with bullet characters (●, •, ◦, ▪, etc.)
+- Paragraphs with `mso-list` styles (Microsoft Office formatting)
+- Paragraphs with hanging indents (list-style formatting)
+
+**Converts to:**
+- Proper `<ul>` (unordered list) tags
+- Individual `<li>` (list item) tags
+- Removes bullet characters from text content
+- **Strips all `mso-` styles** (Microsoft Office formatting)
+- **Removes `white-space: pre`** from all list elements (prevents formatting issues)
+- **Unwraps `<p>` tags inside list items** (prevents double spacing)
+- Groups consecutive list items together
+- Relies on default HTML list styling
+
+**Result:** Clean, vertical bulleted lists with proper spacing and no Word artifacts
+
+**Example:**
+```html
+<!-- Before -->
+<ul style="white-space: pre">
+  <li style="white-space: pre">
+    <p style="margin: 20pt; white-space: pre">Forward Collision-Avoidance Assist</p>
+  </li>
+</ul>
+
+<!-- After -->
+<ul>
+  <li>Forward Collision-Avoidance Assist</li>
+</ul>
+```
 
 ### Content Type Detection
 
@@ -300,12 +397,82 @@ Internal links are automatically converted to WordPress-friendly URLs:
 | `parts` | `/parts/` |
 | `sitemap` | `/sitemap/` |
 
+### Image URL Updates
+
+After downloading images, the system prompts you for WordPress upload settings and updates all image URLs to match the expected WordPress structure.
+
+**WordPress Image URL Format:**
+```
+https://di-uploads-development.dealerinspire.com/{dealer-slug}/uploads/{year}/{month}/{filename}
+```
+
+**Example:**
+```
+Original: https://example.com/images/car-photo.jpg
+Updated:  https://di-uploads-development.dealerinspire.com/albanytoyota/uploads/2025/01/car-photo.jpg
+```
+
+**Configuration Prompts:**
+- **Dealer Slug**: The dealership identifier (e.g., `albanytoyota`, `delrayhyundai`)
+- **Upload Year**: Year for the upload path (defaults to current year)
+- **Upload Month**: Month for the upload path (defaults to current month, 01-12)
+
+**Features:**
+- ✅ Updates all `<img src>` attributes in HTML
+- ✅ Matches downloaded images using mapping file
+- ✅ Falls back to filename extraction for unmapped images
+- ✅ Preserves image alt text and other attributes
+- ✅ Settings saved and reused across runs
+
+**Environment Variables:**
+You can also set these via `.env` to skip prompts:
+```bash
+DEALER_SLUG=albanytoyota
+IMAGE_YEAR=2025
+IMAGE_MONTH=01
+```
+
 ### Slug Generation
 
 File-based URLs are converted to clean WordPress slugs:
 - `www.example.com_2025-ford-f150-review.html` → `2025-ford-f150-review`
 - Removes domain and file extensions
 - Creates SEO-friendly permalinks
+
+### Article Date Extraction
+
+The CSV generator automatically extracts publish dates from article content to preserve the original publication date when importing to WordPress:
+
+**Supported Date Selectors** (in order of priority):
+- `.article-date` - Common blog date class
+- `.post-date` - WordPress-style date class
+- `.published` - Publishing timestamp class
+- `.date` - Generic date class
+- `.entry-date` - Entry metadata class
+- `time[datetime]` - HTML5 time elements with datetime attribute
+- Any element with `date` or `published` in the class name
+
+**Supported Date Formats:**
+- **ISO 8601**: `2023-03-08` or `2023-03-08T12:00:00`
+- **US Format**: `March 8, 2023` or `03/08/2023`
+- **European Format**: `8 March 2023`
+- **Datetime attributes**: Preferred format for accuracy
+
+**Fallback Behavior:**
+- If no date is found → Uses current date/time
+- If date parsing fails → Uses current date/time
+- Outputs MySQL datetime format: `YYYY-MM-DD HH:MM:SS`
+
+**Example:**
+```html
+<!-- In scraped HTML -->
+<h3 class="article-date">March 8, 2023</h3>
+
+<!-- Results in CSV -->
+post_date: "2023-03-08 00:00:00"
+```
+
+**Note:** Date extraction works on the original scraped HTML before class removal, ensuring dates are captured even if they're removed during processing.
 
 ## 📊 Error Handling and Monitoring
 
@@ -386,10 +553,6 @@ Check logs in the `logs/` directory:
 - **Multi-brand dealers**: Mixed content types and navigation patterns
 - **Independent dealers**: Varying CMS platforms and customizations
 
-#### Different OEMs (Original Equipment Manufacturers)
-- **Luxury brands** (BMW, Mercedes, Lexus): Different content hierarchies
-- **Truck-focused** (Ram, Chevy): Specialized content types
-
 ### Required Customizations
 
 #### 1. Link Pattern Updates (`src/core/processor.js`)
@@ -445,9 +608,9 @@ export const DEALER_CONFIGS = {
 ```
 
 #### Plugin Architecture
-Future expansion needs:
-- **Date detection**: detects date in post and imports accourdingly, removes date from html.
+
 Future enhancements could include:
+
 - **Brand-specific plugins**: Modular processors for different dealers
 - **CMS adapters**: Specialized handlers for WordPress
 - **Content type extensions**: Custom rules for reviews, specifications, etc.

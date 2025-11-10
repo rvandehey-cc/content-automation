@@ -7,9 +7,10 @@
 import fetch from 'node-fetch';
 import config from '../config/index.js';
 import { ImageDownloadError, handleError, retry, ProgressTracker } from '../utils/errors.js';
-import { readJSON, writeJSON, getFiles, ensureDir } from '../utils/filesystem.js';
+import { readFile, readJSON, writeJSON, getFiles, ensureDir } from '../utils/filesystem.js';
 import { JSDOM } from 'jsdom';
 import path from 'path';
+import fs from 'fs-extra';
 
 /**
  * Image Downloader Service
@@ -89,6 +90,72 @@ export class ImageDownloaderService {
   }
 
   /**
+   * Normalize image URL for deduplication (remove query parameters, size variants)
+   * @private
+   * @param {string} url - Image URL
+   * @returns {string} Normalized URL
+   */
+  _normalizeImageUrl(url) {
+    try {
+      const urlObj = new URL(url);
+      // Remove query parameters like ?width=767
+      return urlObj.origin + urlObj.pathname;
+    } catch (error) {
+      return url;
+    }
+  }
+
+  /**
+   * Extract base domain from filename
+   * @private
+   * @param {string} filename - Source filename (e.g., www.crestinfiniti.com_page.html)
+   * @returns {string|null} Base domain or null
+   */
+  _extractBaseDomain(filename) {
+    try {
+      // Extract domain from filename format: www.domain.com_path.html
+      const parts = filename.split('_');
+      if (parts.length > 0 && parts[0].includes('.')) {
+        // First part should be the domain
+        const domain = parts[0];
+        return `https://${domain}`;
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Check if element is in main content (not header, footer, nav, sidebar)
+   * @private
+   * @param {Element} element - DOM element to check
+   * @returns {boolean} True if in main content area
+   */
+  _isInMainContent(element) {
+    // Check if element or any parent is a footer, header, nav, or sidebar
+    let current = element;
+    while (current && current.tagName) {
+      const tagName = current.tagName.toLowerCase();
+      const className = (current.getAttribute('class') || '').toLowerCase();
+      
+      // Exclude footer/header elements
+      if (tagName === 'footer' || tagName === 'header' || tagName === 'nav') {
+        return false;
+      }
+      
+      // Exclude elements with footer/header/sidebar/nav classes
+      if (className.match(/(footer|header|sidebar|navbox|navigation|menu|topbar|bottombar|copyright|sitewide-footer|sitewide-header)/)) {
+        return false;
+      }
+      
+      current = current.parentElement;
+    }
+    
+    return true;
+  }
+
+  /**
    * Extract image URLs from HTML content
    * @private
    * @param {string} html - HTML content
@@ -98,15 +165,28 @@ export class ImageDownloaderService {
   _extractImageUrls(html, sourceFilename) {
     const images = [];
     const filteredImages = [];
+    const seenImages = new Set(); // Track normalized URLs to avoid duplicates
+    let duplicatesSkipped = 0;
+    let bgImagesFound = 0;
+    let excludedFromHeaderFooter = 0;
+    
+    // Get base domain from filename
+    const baseDomain = this._extractBaseDomain(sourceFilename);
     
     try {
       const dom = new JSDOM(html);
       const document = dom.window.document;
       
-      // Find all img elements
+      // STEP 1: Find all img elements
       const imgElements = document.querySelectorAll('img');
       
       imgElements.forEach((img, index) => {
+        // IMPORTANT: Skip images in header, footer, nav, sidebar
+        if (!this._isInMainContent(img)) {
+          excludedFromHeaderFooter++;
+          return;
+        }
+        
         const sources = [];
         
         // Get various src attributes
@@ -114,20 +194,45 @@ export class ImageDownloaderService {
         if (img.getAttribute('data-src')) sources.push(img.getAttribute('data-src'));
         if (img.getAttribute('data-lazy-src')) sources.push(img.getAttribute('data-lazy-src'));
         
-        // Get srcset and extract URLs
+        // Get srcset and extract URLs - but only use the first (largest) variant
         const srcset = img.getAttribute('srcset');
         if (srcset) {
           const srcsetUrls = srcset.split(',')
             .map(s => s.trim().split(' ')[0])
-            .filter(url => url && url.startsWith('http'));
-          sources.push(...srcsetUrls);
+            .filter(url => url && (url.startsWith('http') || url.startsWith('/')));
+          // Only take the first srcset URL to avoid duplicates
+          if (srcsetUrls.length > 0 && !sources.includes(srcsetUrls[0])) {
+            sources.push(srcsetUrls[0]);
+          }
         }
         
         // Process each source URL
         sources.forEach(src => {
-          if (src && (src.startsWith('http://') || src.startsWith('https://'))) {
+          if (!src) return;
+          
+          // Convert relative URLs to absolute
+          let absoluteUrl = src;
+          if (src.startsWith('/')) {
+            if (baseDomain) {
+              absoluteUrl = `${baseDomain}${src}`;
+            } else {
+              // Can't convert relative URL without base domain
+              return;
+            }
+          }
+          
+          if (absoluteUrl.startsWith('http://') || absoluteUrl.startsWith('https://')) {
+            // Normalize URL to check for duplicates
+            const normalizedUrl = this._normalizeImageUrl(absoluteUrl);
+            
+            // Skip if we've already seen this image (without query params)
+            if (seenImages.has(normalizedUrl)) {
+              duplicatesSkipped++;
+              return;
+            }
+            
             const imageData = {
-              url: src,
+              url: absoluteUrl,
               sourceFile: sourceFilename,
               imageIndex: index,
               alt: img.alt || '',
@@ -147,36 +252,70 @@ export class ImageDownloaderService {
               // Remove element reference before adding to final array
               const { element, ...cleanImageData } = imageData;
               images.push(cleanImageData);
+              seenImages.add(normalizedUrl);
             }
           }
         });
       });
       
-      // Also check for CSS background images
-      const elementsWithBgImages = document.querySelectorAll('[style*="background-image"]');
-      elementsWithBgImages.forEach((element, index) => {
+      // STEP 2: Extract CSS background images
+      const bgElements = document.querySelectorAll('[style*="background-image"]');
+      
+      bgElements.forEach((element, index) => {
+        // IMPORTANT: Skip background images in header, footer, nav, sidebar
+        if (!this._isInMainContent(element)) {
+          excludedFromHeaderFooter++;
+          return;
+        }
+        
         const style = element.getAttribute('style') || '';
-        const bgImageMatch = style.match(/background-image:\s*url\(['"]?(https?:\/\/[^'")]+)['"]?\)/);
-        if (bgImageMatch) {
+        const bgImageMatch = style.match(/background-image\s*:\s*url\(['"]?([^'")\s]+)['"]?\)/i);
+        
+        if (bgImageMatch && bgImageMatch[1]) {
+          let bgUrl = bgImageMatch[1];
+          
+          // Make relative URLs absolute if needed
+          if (bgUrl.startsWith('/')) {
+            if (baseDomain) {
+              bgUrl = `${baseDomain}${bgUrl}`;
+            } else {
+              // Can't convert relative URL without base domain
+              return;
+            }
+          }
+          
+          // Normalize URL to check for duplicates
+          const normalizedUrl = this._normalizeImageUrl(bgUrl);
+          
+          // Skip if we've already seen this image
+          if (seenImages.has(normalizedUrl)) {
+            duplicatesSkipped++;
+            return;
+          }
+          
           const imageData = {
-            url: bgImageMatch[1],
+            url: bgUrl,
             sourceFile: sourceFilename,
-            imageIndex: `bg_${index}`,
-            alt: '',
-            title: 'Background image',
+            imageIndex: `bg-${index}`,
+            alt: element.getAttribute('aria-label') || '',
+            title: '',
             element: element
           };
           
-          // Check if this background image should be filtered
+          // Check if this image should be filtered
           const filterResult = this._shouldFilterImage(imageData);
           if (filterResult.shouldFilter) {
             filteredImages.push({
               ...imageData,
               filterReason: filterResult.reason
             });
+            console.log(`   🚫 Filtered BG: ${bgUrl.substring(0, 60)}... - ${filterResult.reason}`);
           } else {
+            // Remove element reference before adding to final array
             const { element, ...cleanImageData } = imageData;
             images.push(cleanImageData);
+            seenImages.add(normalizedUrl);
+            bgImagesFound++;
           }
         }
       });
@@ -188,6 +327,21 @@ export class ImageDownloaderService {
     // Log filtering summary if any images were filtered
     if (filteredImages.length > 0) {
       console.log(`   📊 Filtered ${filteredImages.length} avatar/testimonial images from ${sourceFilename}`);
+    }
+    
+    // Log deduplication summary
+    if (duplicatesSkipped > 0) {
+      console.log(`   🔄 Skipped ${duplicatesSkipped} duplicate/size-variant images`);
+    }
+    
+    // Log background images found
+    if (bgImagesFound > 0) {
+      console.log(`   🎨 Found ${bgImagesFound} CSS background images`);
+    }
+    
+    // Log header/footer/sidebar exclusions
+    if (excludedFromHeaderFooter > 0) {
+      console.log(`   🚫 Excluded ${excludedFromHeaderFooter} images from header/footer/sidebar`);
     }
     
     return images;
@@ -300,7 +454,7 @@ export class ImageDownloaderService {
       
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      await writeJSON(finalOutputPath, buffer);
+      await fs.writeFile(finalOutputPath, buffer);
       
       return {
         success: true,
@@ -348,10 +502,10 @@ export class ImageDownloaderService {
       for (const filename of htmlFiles) {
         console.log(`🔍 Scanning: ${filename}`);
         const filePath = path.join(inputDir, filename);
-        const html = await readJSON(filePath, '');
+        const html = await readFile(filePath, '');
         
-        if (typeof html !== 'string') {
-          console.warn(`Skipping ${filename} - not a text file`);
+        if (!html || typeof html !== 'string') {
+          console.warn(`Skipping ${filename} - not a text file or empty`);
           continue;
         }
         

@@ -19,6 +19,7 @@ export class ContentProcessorService {
   constructor(options = {}) {
     this.config = { ...config.get('processor'), ...options };
     this.bypassImages = !config.get('images').enabled;
+    this.customRemoveSelectors = options.customRemoveSelectors || [];
   }
 
   /**
@@ -27,6 +28,38 @@ export class ContentProcessorService {
    * @private
    * @param {Element} element - DOM element to clean
    */
+  /**
+   * Check if a class should be preserved (Bootstrap layout classes)
+   * @private
+   * @param {string} className - Class name to check
+   * @returns {boolean} True if class should be preserved
+   */
+  _shouldPreserveClass(className) {
+    // Preserve Bootstrap layout classes (Bootstrap 3, 4, and 5)
+    const preservePatterns = [
+      /^col(-xs|-sm|-md|-lg|-xl)?(-\d+)?$/,        // col, col-md, col-12, col-md-6, col-xs-12, etc.
+      /^col(-xs|-sm|-md|-lg|-xl)?-offset(-\d+)?$/, // col-sm-offset-3, etc.
+      /^row$/,                       // row
+      /^container(-fluid)?$/,        // container, container-fluid
+      /^text-(left|center|right|justify|start|end)$/,  // text-left, text-center, etc.
+      /^float-(left|right|none|start|end)$/,   // float-left, float-right, etc.
+      /^d-(none|inline|inline-block|block|flex|inline-flex|grid|table|table-row|table-cell)$/,   // d-none, d-block, etc.
+      /^align-(baseline|top|middle|bottom|text-top|text-bottom|start|center|end)$/,  // align-start, align-center, etc.
+      /^justify-content-(start|end|center|between|around|evenly)$/,           // justify-content-center, etc.
+      /^align-items-(start|end|center|baseline|stretch)$/,               // align-items-center, etc.
+      /^align-self-(start|end|center|baseline|stretch)$/,                // align-self-center, etc.
+      /^flex-(row|row-reverse|column|column-reverse|wrap|nowrap|wrap-reverse|fill|grow-\d+|shrink-\d+)$/,     // flex-row, flex-column, etc.
+      /^m[tbrlxy]?-(\d+|auto)$/,           // m-3, mt-2, mx-auto, mb-0, etc.
+      /^p[tbrlxy]?-\d+$/,           // p-3, pt-2, px-4, etc.
+      /^w-(\d+|auto|100)$/,                     // w-100, w-50, w-auto, etc.
+      /^h-(\d+|auto|100)$/,                     // h-100, h-50, h-auto, etc.
+      /^offset-\d+$/,                           // offset-3, etc.
+      /^order-\d+$/                             // order-1, order-2, etc.
+    ];
+    
+    return preservePatterns.some(pattern => pattern.test(className));
+  }
+
   _cleanElement(element) {
     // Remove images if bypassing image processing
     if (this.bypassImages && (element.tagName === 'IMG' || element.tagName === 'PICTURE')) {
@@ -34,9 +67,31 @@ export class ContentProcessorService {
       return;
     }
 
-    // AGGRESSIVE CLEANING: Remove ALL class attributes
+    // SELECTIVE CLEANING: Remove classes EXCEPT Bootstrap layout classes
     if (element.hasAttribute('class')) {
-      element.removeAttribute('class');
+      const classList = element.getAttribute('class').split(/\s+/).filter(c => c);
+      const preservedClasses = classList.filter(className => this._shouldPreserveClass(className));
+      
+      // Debug: count and log preserved classes
+      if (!this._bootstrapClassCount) this._bootstrapClassCount = 0;
+      if (preservedClasses.length > 0) {
+        this._bootstrapClassCount += preservedClasses.length;
+      }
+      if (preservedClasses.length > 0 && !this._bootstrapPreserveLogged) {
+        console.log(`   ✨ Preserving Bootstrap layout classes (found ${classList.length} total, keeping ${preservedClasses.length})`);
+        console.log(`   📝 Sample preserved: ${preservedClasses.slice(0, 5).join(', ')}`);
+        this._bootstrapPreserveLogged = true;
+      }
+      
+      if (preservedClasses.length > 0) {
+        // Keep only Bootstrap layout classes
+        const classValue = preservedClasses.join(' ');
+        // Use setAttribute to ensure DOM updates properly
+        element.setAttribute('class', classValue);
+      } else {
+        // No Bootstrap classes to preserve, remove the attribute
+        element.removeAttribute('class');
+      }
     }
 
     // AGGRESSIVE CLEANING: Remove ALL id attributes  
@@ -49,9 +104,13 @@ export class ContentProcessorService {
     
     // Keep essential attributes based on element type
     if (element.tagName === 'A') {
-      attributesToKeep.push('href', 'target');
+      attributesToKeep.push('href', 'target', 'rel');
     } else if (element.tagName === 'IMG') {
       attributesToKeep.push('src', 'alt', 'width', 'height');
+    } else if (element.tagName === 'IFRAME') {
+      attributesToKeep.push('src', 'width', 'height', 'frameborder', 'allow', 'allowfullscreen', 'title', 'referrerpolicy');
+    } else if (element.tagName === 'VIDEO' || element.tagName === 'AUDIO') {
+      attributesToKeep.push('src', 'width', 'height', 'controls', 'autoplay', 'loop', 'muted', 'poster');
     } else if (['TD', 'TH'].includes(element.tagName)) {
       attributesToKeep.push('scope', 'colspan', 'rowspan');
     } else if (element.tagName === 'TABLE') {
@@ -105,6 +164,7 @@ export class ContentProcessorService {
     console.log(`   📍 Base domain for comparison: ${baseDomain}`);
     
     let linksProcessed = {
+      finance: 0,
       newVehicles: 0,
       usedVehicles: 0,
       certified: 0,
@@ -133,7 +193,16 @@ export class ContentProcessorService {
       const hrefLower = href.toLowerCase();
       
       // First, check for specific content patterns and convert to WordPress URLs
-      if (hrefLower.includes('/new-') || hrefLower.includes('new-inventory') || hrefLower.includes('search/new') || hrefLower.includes('new')) {
+      // IMPORTANT: Check more specific patterns first before general ones
+      if (hrefLower.includes('finance') || hrefLower.includes('apply')) {
+        newHref = '/finance/apply-for-financing/';
+        linksProcessed.finance = (linksProcessed.finance || 0) + 1;
+        console.log(`   💰 Finance/Apply link: ${href} → ${newHref}`);
+      } else if (hrefLower.includes('directions') || hrefLower.includes('contact')) {
+        newHref = '/contact-us/';
+        linksProcessed.contact++;
+        console.log(`   📞 Contact/Directions link: ${href} → ${newHref}`);
+      } else if (hrefLower.includes('/new-') || hrefLower.includes('new-inventory') || hrefLower.includes('search/new') || hrefLower.includes('new')) {
         newHref = '/new-vehicles/';
         linksProcessed.newVehicles++;
         console.log(`   🚗 New vehicles link: ${href} → ${newHref}`);
@@ -145,10 +214,6 @@ export class ContentProcessorService {
         newHref = '/used-vehicles/';
         linksProcessed.usedVehicles++;
         console.log(`   🔧 Used vehicles link: ${href} → ${newHref}`);
-      } else if (hrefLower.includes('contact')) {
-        newHref = '/contact-us/';
-        linksProcessed.contact++;
-        console.log(`   📞 Contact link: ${href} → ${newHref}`);
       } else if (hrefLower.includes('sitemap')) {
         newHref = '/sitemap/';
         linksProcessed.sitemap++;
@@ -205,10 +270,11 @@ export class ContentProcessorService {
     
     // Show summary of link processing
     console.log(`   📊 Link processing summary:`);
+    console.log(`      💰 Finance: ${linksProcessed.finance}`);
+    console.log(`      📞 Contact/Directions: ${linksProcessed.contact}`);
     console.log(`      🚗 New vehicles: ${linksProcessed.newVehicles}`);
     console.log(`      🔧 Used vehicles: ${linksProcessed.usedVehicles}`);
     console.log(`      🏆 Certified: ${linksProcessed.certified}`);
-    console.log(`      📞 Contact: ${linksProcessed.contact}`);
     console.log(`      🗺️ Sitemap: ${linksProcessed.sitemap}`);
     console.log(`      🔧 Service: ${linksProcessed.service}`);
     console.log(`      🔩 Parts: ${linksProcessed.parts}`);
@@ -228,26 +294,88 @@ export class ContentProcessorService {
    */
   _updateImageSources(element, imageMapping, dealerConfig) {
     // Skip image processing if bypassed
-    if (!dealerConfig || this.bypassImages) {
+    if (this.bypassImages) {
+      return;
+    }
+    
+    // Get WordPress upload settings from config
+    const processorConfig = this.config;
+    const dealerSlug = processorConfig.dealerSlug;
+    const imageYear = processorConfig.imageYear;
+    const imageMonth = processorConfig.imageMonth;
+    
+    // Skip if no dealer slug configured
+    if (!dealerSlug) {
+      console.log('   ⚠️  No dealer slug configured - skipping image URL updates');
       return;
     }
     
     const images = element.querySelectorAll('img[src]');
+    let updatedCount = 0;
     
     images.forEach(img => {
       const src = img.getAttribute('src');
       
       // Find matching image in mapping
-      const imageMatch = imageMapping.images.find(item => 
-        item.originalUrl === src || item.originalUrl.endsWith(src)
-      );
+      let imageMatch = null;
+      if (imageMapping && imageMapping.images) {
+        imageMatch = imageMapping.images.find(item => {
+          // Exact match
+          if (item.originalUrl === src) return true;
+          
+          // Check if mapping URL ends with the src (handles relative URLs)
+          if (item.originalUrl.endsWith(src)) return true;
+          
+          // For relative URLs like /static/..., check if mapping URL contains the path
+          if (src.startsWith('/')) {
+            // Extract path from absolute mapping URL and compare
+            try {
+              const mappingUrl = new URL(item.originalUrl);
+              if (mappingUrl.pathname === src) return true;
+            } catch (e) {
+              // If mapping URL is also relative, do direct comparison
+              if (item.originalUrl === src) return true;
+            }
+          }
+          
+          return false;
+        });
+      }
       
       if (imageMatch) {
-        // Update to WordPress upload path
-        const wpPath = `/wp-content/uploads/${dealerConfig.year}/${dealerConfig.month}/${imageMatch.filename}`;
-        img.setAttribute('src', wpPath);
+        // Update to WordPress upload URL structure
+        // Format: https://di-uploads-development.dealerinspire.com/{dealer-slug}/uploads/{year}/{month}/{filename}
+        const wpUrl = `https://di-uploads-development.dealerinspire.com/${dealerSlug}/uploads/${imageYear}/${imageMonth}/${imageMatch.localFilename}`;
+        img.setAttribute('src', wpUrl);
+        updatedCount++;
+      } else {
+        // If no mapping found, try to extract filename from src and update anyway
+        let filename = null;
+        
+        if (src.startsWith('http://') || src.startsWith('https://')) {
+          // Absolute URL
+          try {
+            const url = new URL(src);
+            filename = url.pathname.split('/').pop();
+          } catch (error) {
+            // Invalid URL
+          }
+        } else if (src.startsWith('/')) {
+          // Relative URL like /static/brand-infiniti/.../image.jpg
+          filename = src.split('/').pop();
+        }
+        
+        if (filename && filename.length > 0) {
+          const wpUrl = `https://di-uploads-development.dealerinspire.com/${dealerSlug}/uploads/${imageYear}/${imageMonth}/${filename}`;
+          img.setAttribute('src', wpUrl);
+          updatedCount++;
+        }
       }
     });
+    
+    if (updatedCount > 0) {
+      console.log(`   🖼️  Updated ${updatedCount} image URLs to WordPress structure`);
+    }
   }
 
   /**
@@ -358,6 +486,14 @@ export class ContentProcessorService {
       // Skip if element is too large (likely main content)
       if (textContent.length > 500) return;
       
+      // IMPORTANT: Skip main content containers even if they're small
+      const className = element.getAttribute('class') || '';
+      const isContentContainer = /(container|row|col-|main|content|article|entry|post-content|blogContent|descriptionDiv)/i.test(className);
+      
+      if (isContentContainer) {
+        return; // Don't remove content containers
+      }
+      
       // Check for text patterns to remove
       if (matchesPattern(textContent, textPatternsToRemove)) {
         elementsToRemove.push(element);
@@ -405,9 +541,13 @@ export class ContentProcessorService {
       }
       
       // Remove elements with blog-specific classes (if any survived cleaning)
-      const className = element.className || '';
-      if (typeof className === 'string' && 
-          /(sidebar|widget|recent|categories|archive|meta|nav|breadcrumb|comment)/i.test(className)) {
+      // BUT preserve main content containers (already checked above, but double-check for class-based patterns)
+      const elementClass = element.className || '';
+      const isClassBasedContainer = /(main|content|article|entry|post-content|blogContent|descriptionDiv)/i.test(elementClass);
+      
+      if (typeof elementClass === 'string' && 
+          /(sidebar|widget|recent|categories|archive|meta|nav|breadcrumb|comment)/i.test(elementClass) &&
+          !isClassBasedContainer) {
         elementsToRemove.push(element);
       }
     });
@@ -711,14 +851,30 @@ export class ContentProcessorService {
   _removeDealershipBlocks(body, filename) {
     let removedCount = 0;
     
-    // Remove iframes (often dealer maps, embedded content)
+    // Remove iframes EXCEPT for video content (YouTube, Vimeo, etc.)
     // Convert to Array to avoid live NodeList issues
     const iframes = Array.from(body.querySelectorAll('iframe'));
     iframes.forEach(iframe => {
       try {
         if (iframe.parentNode) {
-          iframe.remove();
-          removedCount++;
+          const src = iframe.getAttribute('src') || '';
+          const srcLower = src.toLowerCase();
+          
+          // Preserve video embeds and other legitimate content iframes
+          const isVideoEmbed = 
+            srcLower.includes('youtube.com') ||
+            srcLower.includes('youtu.be') ||
+            srcLower.includes('vimeo.com') ||
+            srcLower.includes('wistia.com') ||
+            srcLower.includes('vidyard.com') ||
+            srcLower.includes('player.') ||
+            srcLower.includes('/embed/');
+          
+          // Remove only non-video iframes (maps, forms, etc.)
+          if (!isVideoEmbed) {
+            iframe.remove();
+            removedCount++;
+          }
         }
       } catch (error) {
         console.warn(`   ⚠️ Could not remove iframe: ${error.message}`);
@@ -771,90 +927,84 @@ export class ContentProcessorService {
       }
     });
     
-    // Remove test drive sections - be more specific to avoid removing large containers
+    // Remove ONLY very specific standalone promotional paragraphs
+    // Be conservative - preserve article conclusions and CTAs that are part of the content flow
     const paragraphs = body.querySelectorAll('p');
     paragraphs.forEach(element => {
       const text = element.textContent || '';
       const textLower = text.toLowerCase().trim();
       
-      // Only remove if the entire paragraph is primarily dealer content (not just mentions)
-      // Test drive calls-to-action - only if it's the main focus of the paragraph
-      if (textLower.includes('test drive') && 
-          (textLower.includes('take the') || textLower.includes('schedule')) &&
-          text.length < 300) { // Don't remove long paragraphs that just mention it
-        element.remove();
-        removedCount++;
-        return;
-      }
-      
-      // Dealership contact information with phone numbers - only dedicated contact paragraphs
-      if (textLower.includes('call') && 
-          (textLower.includes('delray') || textLower.includes('hyundai') || textLower.includes('today')) &&
-          /\(\d{3}\)\s*\d{3}-\d{4}/.test(text) &&
-          text.length < 200) { // Don't remove long content paragraphs
-        element.remove();
-        removedCount++;
-        return;
-      }
-      
-      // Address and location information - only if it's primarily address content
+      // Only remove very short, clearly standalone promotional snippets
+      // Address and location information - only if it's ONLY address content (very short)
       if (((/\d+\s+\w+\s+(street|st|avenue|ave|road|rd|blvd|boulevard)/i.test(text) &&
            textLower.includes('fl')) ||
           (textLower.includes('visit') && textLower.includes('showroom'))) &&
-          text.length < 150) {
+          text.length < 100 &&  // Very short - clearly just an address
+          !textLower.includes('available') &&  // Not part of feature description
+          !textLower.includes('include')) {  // Not part of feature description
         element.remove();
         removedCount++;
         return;
       }
       
-      // "Get a personal tour" or similar dealership marketing - only short marketing blurbs
-      if ((textLower.includes('get a personal') || 
-          textLower.includes('come down to') ||
-          textLower.includes('stop by') && textLower.includes('dealership') ||
-          textLower.includes('our friendly staff')) &&
-          text.length < 200) {
-        element.remove();
-        removedCount++;
-        return;
-      }
-      
-      // Hours of operation - only dedicated hours paragraphs
+      // Hours of operation - only dedicated hours paragraphs (very short)
       if ((textLower.includes('hours') && textLower.includes('open') ||
           (/monday|tuesday|wednesday|thursday|friday|saturday|sunday/i.test(text) && 
           /\d{1,2}:\d{2}/i.test(text))) &&
-          text.length < 200) {
+          text.length < 150 &&
+          !textLower.includes('available')) {  // Not part of feature description
+        element.remove();
+        removedCount++;
+        return;
+      }
+      
+      // Very specific standalone promotional snippets only (extremely short)
+      // "Come down to our dealership" type content - but NOT article conclusions with links
+      if ((textLower.includes('come down to') ||
+          (textLower.includes('stop by') && textLower.includes('dealership'))) &&
+          text.length < 80 &&  // Very short snippet
+          !element.querySelector('a')) {  // No links - not part of article flow
         element.remove();
         removedCount++;
         return;
       }
     });
     
-    // Remove links to inventory or dealership pages
+    // Remove standalone promotional links (but preserve links that are part of article content)
+    // IMPORTANT: Links in article content should be preserved, not removed
     const links = body.querySelectorAll('a');
     links.forEach(link => {
       const href = link.getAttribute('href') || '';
       const text = link.textContent || '';
-      const textLower = text.toLowerCase();
+      const textLower = text.toLowerCase().trim();
       
-      if (textLower.includes('inventory') || 
-          textLower.includes('browse') || 
-          href.includes('/new-vehicles/') ||
-          href.includes('/search/') ||
-          href.includes('/contact') ||
-          href.includes('/directions')) {
-        // Replace link with just the text content or remove entirely
-        if (textLower.includes('inventory') || 
-            textLower.includes('browse') ||
-            textLower.includes('contact') ||
-            textLower.includes('directions')) {
-          link.remove();
-          removedCount++;
-        } else {
-          // Keep text but remove link
-          const textNode = body.ownerDocument.createTextNode(text);
-          link.parentNode.replaceChild(textNode, link);
-        }
+      // Get the parent paragraph or container to check if link is part of article content
+      const parent = link.closest('p, div, section');
+      const parentText = parent ? parent.textContent.trim() : '';
+      const isInArticleContent = parentText.length > 100; // Paragraph with substantial content
+      
+      // Check if this is a promotional/CTA link vs. part of article content
+      // Only remove if it's a clear standalone CTA AND not part of article content
+      const isStandaloneCTA = 
+        // Very specific standalone promotional link text (exact matches only)
+        (textLower === 'contact us today') ||
+        (textLower === 'get directions') ||
+        (textLower === 'click here for directions') ||
+        (textLower === 'browse inventory') ||
+        (textLower === 'view inventory') ||
+        (textLower === 'search inventory') ||
+        (textLower === 'shop now') ||
+        (textLower === 'view all vehicles') ||
+        // Only remove directions links that aren't part of article content
+        (textLower.includes('directions') && !isInArticleContent);
+      
+      // DO NOT remove links that are part of article paragraphs
+      // Links like "Contact us today to learn more..." should be preserved
+      if (isStandaloneCTA && !isInArticleContent) {
+        link.remove();
+        removedCount++;
       }
+      // All other links are preserved and will be processed by _updateLinks()
     });
     
     // Remove inventory feed elements and dynamic content loaders
@@ -898,7 +1048,16 @@ export class ContentProcessorService {
         }
         
         // Remove inventory-specific content that's not in regular paragraphs
-        else if (element.tagName !== 'P' && (
+        // Only remove if the element is relatively small (not a large container)
+        // IMPORTANT: Exclude tables and their children - tables are legitimate comparison content
+        else if (element.tagName !== 'P' && 
+                 element.tagName !== 'TABLE' && 
+                 element.tagName !== 'TD' && 
+                 element.tagName !== 'TH' &&
+                 element.tagName !== 'TR' &&
+                 !element.closest('table') &&  // Don't remove elements inside tables
+                 !element.querySelector('table') &&  // Don't remove divs containing tables
+                 text.length < 200 && (
             textLower.includes('browse our inventory') ||
             textLower.includes('search our inventory') ||
             textLower.includes('view inventory') ||
@@ -1097,6 +1256,339 @@ export class ContentProcessorService {
   }
 
   /**
+   * Convert Microsoft Word-style lists to proper HTML lists
+   * Detects paragraphs with bullet points or mso-list styles and converts them to <ul>/<li>
+   * @private
+   * @param {Element} body - Document body
+   */
+  _convertWordListsToHtml(body) {
+    console.log('   📝 Converting Microsoft Word-style lists to proper HTML...');
+    
+    let listsConverted = 0;
+    
+    // Find all paragraphs that look like list items (have bullets or mso-list styling)
+    const allParagraphs = Array.from(body.querySelectorAll('p'));
+    
+    allParagraphs.forEach(p => {
+      const text = p.textContent || '';
+      const style = p.getAttribute('style') || '';
+      
+      // Check if this looks like a list item:
+      // - Has bullet character (●, •, ◦, ▪, etc.)
+      // - Has mso-list in style
+      // - Has margin-left and text-indent (Word list formatting)
+      const hasBullet = /^[●•◦▪■◆▸►]\s/.test(text.trim());
+      const hasMsoList = style.includes('mso-list');
+      const hasListIndent = style.includes('margin-left') && style.includes('text-indent');
+      
+      if (hasBullet || hasMsoList || hasListIndent) {
+        // Mark this paragraph as a list item
+        p.setAttribute('data-list-item', 'true');
+      }
+    });
+    
+    // Group consecutive list items and convert to proper lists
+    const markedParagraphs = Array.from(body.querySelectorAll('p[data-list-item="true"]'));
+    let currentGroup = [];
+    
+    markedParagraphs.forEach((p, index) => {
+      currentGroup.push(p);
+      
+      // Check if next element is also a list item
+      const nextElement = p.nextElementSibling;
+      const isLastInGroup = !nextElement || !nextElement.hasAttribute('data-list-item');
+      
+      if (isLastInGroup && currentGroup.length > 0) {
+        // Create a proper <ul> list
+        const ul = body.ownerDocument.createElement('ul');
+        
+        // Convert each paragraph to <li>
+        currentGroup.forEach(listP => {
+          const li = body.ownerDocument.createElement('li');
+          
+          // Move all child nodes to <li> (preserving formatting like spans)
+          while (listP.firstChild) {
+            const child = listP.firstChild;
+            
+            // Clean up any mso-list, Word-specific, or problematic styles from child elements
+            if (child.nodeType === 1) { // Element node
+              const style = child.getAttribute('style') || '';
+              if (style) {
+                // Remove mso- styles and white-space: pre
+                const cleanedStyle = style
+                  .split(';')
+                  .filter(s => {
+                    const trimmed = s.trim();
+                    return !trimmed.startsWith('mso-') && 
+                           !trimmed.startsWith('white-space');
+                  })
+                  .join(';')
+                  .trim();
+                
+                if (cleanedStyle) {
+                  child.setAttribute('style', cleanedStyle);
+                } else {
+                  child.removeAttribute('style');
+                }
+              }
+            }
+            
+            li.appendChild(child);
+          }
+          
+          // Also clean the <li> element itself of white-space: pre
+          const liStyle = li.getAttribute('style') || '';
+          if (liStyle && liStyle.includes('white-space')) {
+            const cleanedLiStyle = liStyle
+              .split(';')
+              .filter(s => !s.trim().startsWith('white-space'))
+              .join(';')
+              .trim();
+            
+            if (cleanedLiStyle) {
+              li.setAttribute('style', cleanedLiStyle);
+            } else {
+              li.removeAttribute('style');
+            }
+          }
+          
+          // Clean any white-space: pre from all nested elements
+          const nestedElements = Array.from(li.querySelectorAll('[style*="white-space"]'));
+          nestedElements.forEach(elem => {
+            const elemStyle = elem.getAttribute('style') || '';
+            const cleanedStyle = elemStyle
+              .split(';')
+              .filter(s => !s.trim().startsWith('white-space'))
+              .join(';')
+              .trim();
+            
+            if (cleanedStyle) {
+              elem.setAttribute('style', cleanedStyle);
+            } else {
+              elem.removeAttribute('style');
+            }
+          });
+          
+          // Unwrap any paragraph tags inside the <li> to avoid double spacing
+          // List items should contain inline content, not block-level paragraphs
+          const paragraphsInLi = Array.from(li.querySelectorAll('p'));
+          paragraphsInLi.forEach(p => {
+            // Move all children of the <p> to the parent <li>
+            while (p.firstChild) {
+              li.insertBefore(p.firstChild, p);
+            }
+            // Remove the now-empty <p> tag
+            p.remove();
+          });
+          
+          // Remove bullet characters from the beginning of text content
+          // Check first text node in the <li>
+          const walker = body.ownerDocument.createTreeWalker(
+            li,
+            4, // NodeFilter.SHOW_TEXT
+            null
+          );
+          
+          const firstTextNode = walker.nextNode();
+          if (firstTextNode && firstTextNode.nodeType === 3) {
+            // Remove leading bullets and Word list markers
+            firstTextNode.textContent = firstTextNode.textContent
+              .replace(/^[●•◦▪■◆▸►]\s*/g, '')  // Remove bullet symbols
+              .replace(/^\s*[\w\d]+\.\s*/, ''); // Remove numbered list markers like "1. "
+          }
+          
+          ul.appendChild(li);
+        });
+        
+        // Clean the <ul> element itself of white-space: pre
+        const ulStyle = ul.getAttribute('style') || '';
+        if (ulStyle && ulStyle.includes('white-space')) {
+          const cleanedUlStyle = ulStyle
+            .split(';')
+            .filter(s => !s.trim().startsWith('white-space'))
+            .join(';')
+            .trim();
+          
+          if (cleanedUlStyle) {
+            ul.setAttribute('style', cleanedUlStyle);
+          } else {
+            ul.removeAttribute('style');
+          }
+        }
+        
+        // Insert the <ul> before the first paragraph in the group
+        const firstP = currentGroup[0];
+        firstP.parentNode.insertBefore(ul, firstP);
+        
+        // Remove all the original paragraphs
+        currentGroup.forEach(listP => listP.remove());
+        
+        listsConverted++;
+        currentGroup = [];
+      }
+    });
+    
+    if (listsConverted > 0) {
+      console.log(`   ✅ Converted ${listsConverted} Microsoft Word-style lists to proper HTML lists`);
+    }
+    
+    // Clean up any remaining lists (not converted from Word) that have white-space: pre
+    const allLists = Array.from(body.querySelectorAll('ul, ol'));
+    let cleanedLists = 0;
+    
+    allLists.forEach(list => {
+      // Clean the list container
+      const listStyle = list.getAttribute('style') || '';
+      if (listStyle && listStyle.includes('white-space')) {
+        const cleanedStyle = listStyle
+          .split(';')
+          .filter(s => !s.trim().startsWith('white-space'))
+          .join(';')
+          .trim();
+        
+        if (cleanedStyle) {
+          list.setAttribute('style', cleanedStyle);
+        } else {
+          list.removeAttribute('style');
+        }
+        cleanedLists++;
+      }
+      
+      // Clean all list items and nested elements
+      const listItems = Array.from(list.querySelectorAll('li'));
+      listItems.forEach(li => {
+        const liStyle = li.getAttribute('style') || '';
+        if (liStyle && liStyle.includes('white-space')) {
+          const cleanedLiStyle = liStyle
+            .split(';')
+            .filter(s => !s.trim().startsWith('white-space'))
+            .join(';')
+            .trim();
+          
+          if (cleanedLiStyle) {
+            li.setAttribute('style', cleanedLiStyle);
+          } else {
+            li.removeAttribute('style');
+          }
+        }
+        
+        // Clean nested elements inside list items
+        const nestedElements = Array.from(li.querySelectorAll('[style*="white-space"]'));
+        nestedElements.forEach(elem => {
+          const elemStyle = elem.getAttribute('style') || '';
+          const cleanedStyle = elemStyle
+            .split(';')
+            .filter(s => !s.trim().startsWith('white-space'))
+            .join(';')
+            .trim();
+          
+          if (cleanedStyle) {
+            elem.setAttribute('style', cleanedStyle);
+          } else {
+            elem.removeAttribute('style');
+          }
+        });
+      });
+    });
+    
+    if (cleanedLists > 0) {
+      console.log(`   ✅ Cleaned white-space: pre from ${cleanedLists} existing lists`);
+    }
+  }
+
+  /**
+   * Add consistent spacing between content elements
+   * Applies uniform 20pt margin top and bottom to all content elements for better readability
+   * @private
+   * @param {Element} body - Document body
+   */
+  _addContentSpacing(body) {
+    console.log('   📏 Adding consistent 20pt spacing between content elements...');
+    
+    // Uniform spacing for all content elements - increased for better visual separation
+    const uniformMargin = '20pt';
+    
+    // Content elements to apply spacing to
+    const contentSelectors = [
+      'p',           // Paragraphs
+      'h2', 'h3', 'h4', 'h5', 'h6',  // Headings (H1 is removed)
+      'ul', 'ol',    // Lists
+      'blockquote',  // Blockquotes
+      'table',       // Tables
+      'img',         // Images
+      'iframe',      // Embedded content (videos, etc.)
+      'figure',      // Figure elements containing media
+      'video',       // Video elements
+      'div'          // Divs (but only direct children with text content)
+    ];
+    
+    let totalElementsProcessed = 0;
+    
+    // Apply spacing to all content elements
+    contentSelectors.forEach(selector => {
+      const elements = body.querySelectorAll(selector);
+      
+      elements.forEach(element => {
+        // Skip empty elements or elements that are just containers
+        const hasTextContent = element.textContent && element.textContent.trim().length > 0;
+        const isImage = element.tagName === 'IMG';
+        const isTable = element.tagName === 'TABLE';
+        const isIframe = element.tagName === 'IFRAME';
+        const isFigure = element.tagName === 'FIGURE';
+        const isVideo = element.tagName === 'VIDEO';
+        
+        // Only process elements with actual content or special elements like images/tables/iframes/videos
+        if (!hasTextContent && !isImage && !isTable && !isIframe && !isFigure && !isVideo) {
+          return;
+        }
+        
+        // Skip nested divs that are part of table-responsive wrappers
+        if (element.tagName === 'DIV' && element.classList.contains('table-responsive')) {
+          return;
+        }
+        
+        // IMPORTANT: Skip paragraphs inside list items to prevent double spacing
+        if (element.tagName === 'P' && element.closest('li')) {
+          return;
+        }
+        
+        // Skip large container divs (only apply spacing to small content divs or actual content elements)
+        if (element.tagName === 'DIV') {
+          // If div has child block elements (p, h2, table, etc), it's a container - skip it
+          const hasBlockChildren = element.querySelector('p, h1, h2, h3, h4, h5, h6, table, ul, ol, blockquote, div');
+          if (hasBlockChildren) {
+            return;
+          }
+        }
+        
+        const existingStyle = element.getAttribute('style') || '';
+        
+        // Remove existing margin-top and margin-bottom styles and replace with uniform spacing
+        let newStyle = existingStyle
+          // Remove margin-top (handles various formats: margin-top: 0pt, margin-top:20px, etc.)
+          .replace(/margin-top\s*:\s*[^;]+;?/gi, '')
+          // Remove margin-bottom
+          .replace(/margin-bottom\s*:\s*[^;]+;?/gi, '')
+          // Clean up any double semicolons or trailing spaces
+          .replace(/;\s*;/g, ';')
+          .replace(/^\s*;\s*/, '')
+          .trim();
+        
+        // Add uniform margins
+        if (newStyle && !newStyle.endsWith(';')) {
+          newStyle += '; ';
+        }
+        newStyle += `margin-top: ${uniformMargin}; margin-bottom: ${uniformMargin}`;
+        
+        element.setAttribute('style', newStyle);
+        totalElementsProcessed++;
+      });
+    });
+    
+    console.log(`   ✅ Applied 20pt top/bottom margins to ${totalElementsProcessed} content elements`);
+  }
+
+  /**
    * Apply Bootstrap styling to tables
    * @private
    * @param {Element} body - Document body
@@ -1104,10 +1596,10 @@ export class ContentProcessorService {
   _applyBootstrapTables(body) {
     const tables = body.querySelectorAll('table');
     tables.forEach(table => {
-      // Remove existing classes and add Bootstrap table classes
-      table.removeAttribute('class');
+      // Remove existing classes and add Bootstrap table classes  
+      table.className = '';  // Clear first
       table.removeAttribute('style');
-      table.setAttribute('class', 'table table-striped table-bordered');
+      table.className = 'table table-striped table-bordered';
       
       // Add responsive wrapper if not already wrapped
       if (!table.parentElement.classList.contains('table-responsive')) {
@@ -1156,14 +1648,20 @@ export class ContentProcessorService {
       for (let pass = 0; pass < 5; pass++) {
         
         // Remove empty elements aggressively
-        const emptyElements = body.querySelectorAll('div, span, p, strong, em, b, i, u, section, article, header, footer');
+        const emptyElements = body.querySelectorAll('div, span, p, strong, em, b, i, u, section, article, header, footer, figure');
         
         emptyElements.forEach(element => {
           // Skip table wrappers
           if (element.classList.contains('table-responsive')) return;
           
+          // Skip elements with Bootstrap layout classes - they're structural and should be preserved
+          const classAttr = element.getAttribute('class') || '';
+          const classList = classAttr.split(/\s+/).filter(c => c);
+          const hasBootstrapClass = classList.some(className => this._shouldPreserveClass(className));
+          if (hasBootstrapClass) return;
+          
           const textContent = element.textContent.trim();
-          const hasImportantChildren = element.querySelector('table, img, a, input, button, iframe');
+          const hasImportantChildren = element.querySelector('table, img, a, input, button, iframe, video, audio');
           
           // Remove if completely empty or only whitespace/nbsp/br
           if ((!textContent || textContent === '' || textContent === '\u00A0' || textContent === '&nbsp;') && !hasImportantChildren) {
@@ -1185,7 +1683,7 @@ export class ContentProcessorService {
         const paragraphs = body.querySelectorAll('p');
         paragraphs.forEach(p => {
           const text = p.textContent.trim();
-          const hasImportantChildren = p.querySelector('a, img, table, input, button');
+          const hasImportantChildren = p.querySelector('a, img, table, input, button, iframe, video, audio');
           
           if ((!text || text === '' || text === '\u00A0' || text === '&nbsp;') && !hasImportantChildren) {
             p.remove();
@@ -1197,6 +1695,12 @@ export class ContentProcessorService {
         containers.forEach(container => {
           // Skip table wrappers
           if (container.classList.contains('table-responsive')) return;
+          
+          // Skip elements with Bootstrap layout classes
+          const classAttr = container.getAttribute('class') || '';
+          const classList = classAttr.split(/\s+/).filter(c => c);
+          const hasBootstrapClass = classList.some(className => this._shouldPreserveClass(className));
+          if (hasBootstrapClass) return;
           
           // If container has no useful attributes and content, unwrap it
           if (!container.hasAttribute('class') && !container.hasAttribute('id')) {
@@ -1235,6 +1739,307 @@ export class ContentProcessorService {
 
 
   /**
+   * Normalize image URL for deduplication (remove query parameters)
+   * @private
+   * @param {string} url - Image URL
+   * @returns {string} Normalized URL
+   */
+  _normalizeImageUrl(url) {
+    try {
+      // Remove query parameters like ?width=767
+      return url.split('?')[0];
+    } catch (error) {
+      return url;
+    }
+  }
+
+  /**
+   * Convert CSS background images to actual img tags
+   * Many modern websites use background-image CSS for layout images
+   * This method extracts those and converts them to proper img elements for WordPress
+   * @private
+   * @param {Document} body - Document body
+   * @param {string} filename - Filename for logging
+   */
+  _convertBackgroundImagesToImg(body, filename) {
+    let convertedCount = 0;
+    let duplicatesSkipped = 0;
+    const seenImages = new Map(); // Track normalized URLs -> best variant (prefer without query params)
+    
+    // Find all elements with background-image in their style attribute
+    const allElements = Array.from(body.querySelectorAll('[style*="background-image"]'));
+    
+    // First pass: collect all images and prefer URLs without query parameters
+    allElements.forEach(element => {
+      try {
+        const style = element.getAttribute('style') || '';
+        const bgImageMatch = style.match(/background-image\s*:\s*url\(['"]?([^'")\s]+)['"]?\)/i);
+        
+        if (bgImageMatch && bgImageMatch[1]) {
+          const imageUrl = bgImageMatch[1];
+          const normalizedUrl = this._normalizeImageUrl(imageUrl);
+          
+          const existing = seenImages.get(normalizedUrl);
+          if (!existing) {
+            // First time seeing this image
+            seenImages.set(normalizedUrl, { element, imageUrl });
+          } else {
+            // We've seen this image before - prefer the one WITHOUT query params
+            const hasQueryParams = imageUrl.includes('?');
+            const existingHasQueryParams = existing.imageUrl.includes('?');
+            
+            if (!hasQueryParams && existingHasQueryParams) {
+              // Current URL is cleaner - use it instead
+              existing.element.remove(); // Remove the old one
+              seenImages.set(normalizedUrl, { element, imageUrl });
+              duplicatesSkipped++;
+            } else {
+              // Keep existing, remove current
+              element.remove();
+              duplicatesSkipped++;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(`   ⚠️ Could not process background image: ${error.message}`);
+      }
+    });
+    
+    // Second pass: convert the selected images to <img> tags
+    seenImages.forEach(({ element, imageUrl }) => {
+      try {
+        // Get alt text from aria-label if it exists
+        const altText = element.getAttribute('aria-label') || '';
+        
+        // Create a new img element
+        const img = body.ownerDocument.createElement('img');
+        img.setAttribute('src', imageUrl);
+        if (altText) {
+          img.setAttribute('alt', altText);
+        }
+        
+        // Copy loading attribute if present
+        const loading = element.getAttribute('loading');
+        if (loading) {
+          img.setAttribute('loading', loading);
+        }
+        
+        // Replace the div with the img element
+        element.parentNode.replaceChild(img, element);
+        convertedCount++;
+      } catch (error) {
+        console.warn(`   ⚠️ Could not convert background image: ${error.message}`);
+      }
+    });
+    
+    if (convertedCount > 0) {
+      console.log(`   🖼️  Converted ${convertedCount} CSS background images to <img> tags`);
+    }
+    
+    if (duplicatesSkipped > 0) {
+      console.log(`   🔄 Skipped ${duplicatesSkipped} duplicate responsive background images`);
+    }
+  }
+
+  /**
+   * Remove sidebar and navigation elements by class names
+   * Must be called BEFORE _cleanElement removes all classes
+   * @private
+   * @param {Document} body - Document body
+   * @param {string} filename - Filename for logging
+   */
+  _removeSidebarElements(body, filename) {
+    let removedCount = 0;
+    
+    // Sidebar and navigation class patterns to remove
+    const sidebarClassPatterns = [
+      'navboxwrap',
+      'navboxright',
+      'navbox',
+      'sidebar',
+      'widget-area',
+      'blog-sidebar',
+      'post-navigation',
+      'entry-navigation',
+      'nav-links',
+      'navigation',
+      'archives',
+      'categories',
+      'meta-links',
+      'blogroll'
+    ];
+    
+    // Convert to Array to avoid live NodeList issues
+    const allElements = Array.from(body.querySelectorAll('*'));
+    const elementsToRemove = [];
+    
+    allElements.forEach(element => {
+      try {
+        // Skip if element is no longer in DOM
+        if (!element.parentNode) return;
+        
+        const className = element.getAttribute('class') || '';
+        const classLower = className.toLowerCase();
+        
+        // Check if element has any of the sidebar class patterns
+        const hasSidebarClass = sidebarClassPatterns.some(pattern => 
+          classLower.includes(pattern.toLowerCase())
+        );
+        
+        if (hasSidebarClass) {
+          elementsToRemove.push(element);
+        }
+      } catch (error) {
+        console.warn(`   ⚠️ Error checking sidebar element: ${error.message}`);
+      }
+    });
+    
+    // Remove identified elements
+    elementsToRemove.forEach(element => {
+      try {
+        if (element.parentNode) {
+          element.remove();
+          removedCount++;
+        }
+      } catch (error) {
+        console.warn(`   ⚠️ Could not remove sidebar element: ${error.message}`);
+      }
+    });
+    
+    if (removedCount > 0) {
+      console.log(`   🗑️  Removed ${removedCount} sidebar/navigation elements`);
+    }
+  }
+
+  /**
+   * Remove elements matching custom selectors provided by user
+   * Must be called BEFORE _cleanElement removes all classes/ids
+   * @private
+   * @param {Document} body - Document body
+   * @param {string} filename - Filename for logging
+   */
+  _removeCustomSelectors(body, filename) {
+    if (!this.customRemoveSelectors || this.customRemoveSelectors.length === 0) {
+      return;
+    }
+
+    let removedCount = 0;
+    const elementsToRemove = [];
+
+    // Try each selector and collect matching elements
+    this.customRemoveSelectors.forEach(selector => {
+      try {
+        const matches = Array.from(body.querySelectorAll(selector));
+        matches.forEach(element => {
+          // Avoid duplicates
+          if (!elementsToRemove.includes(element)) {
+            elementsToRemove.push(element);
+          }
+        });
+      } catch (error) {
+        console.warn(`   ⚠️ Invalid selector "${selector}": ${error.message}`);
+      }
+    });
+
+    // Remove all collected elements
+    elementsToRemove.forEach(element => {
+      try {
+        if (element.parentNode) {
+          element.remove();
+          removedCount++;
+        }
+      } catch (error) {
+        console.warn(`   ⚠️ Could not remove element matching custom selector: ${error.message}`);
+      }
+    });
+
+    if (removedCount > 0) {
+      console.log(`   🎯 Removed ${removedCount} element(s) matching custom selector(s)`);
+    }
+  }
+
+  /**
+   * Remove date display elements from content
+   * Dates are already extracted for post_date, so they shouldn't appear in content
+   * Must be called BEFORE _cleanElement removes all classes
+   * @private
+   * @param {Document} body - Document body
+   * @param {string} filename - Filename for logging
+   */
+  _removeDateElements(body, filename) {
+    let removedCount = 0;
+    
+    // Date class patterns to identify and remove
+    const dateClassPatterns = [
+      'dateDiv',
+      'date-div',
+      'post-date',
+      'entry-date',
+      'published',
+      'publish-date',
+      'article-date',
+      'date-posted'
+    ];
+    
+    // Convert to Array to avoid live NodeList issues
+    const allElements = Array.from(body.querySelectorAll('*'));
+    const elementsToRemove = [];
+    
+    allElements.forEach(element => {
+      try {
+        // Skip if element is no longer in DOM
+        if (!element.parentNode) return;
+        
+        const className = element.getAttribute('class') || '';
+        const classLower = className.toLowerCase();
+        
+        // Check if element has any of the date class patterns
+        const hasDateClass = dateClassPatterns.some(pattern => 
+          classLower.includes(pattern.toLowerCase())
+        );
+        
+        if (hasDateClass) {
+          // Additional validation: check if content looks like a date
+          const textContent = element.textContent?.trim() || '';
+          
+          // Date format patterns
+          const datePatterns = [
+            /^(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}$/i,
+            /^\d{1,2}\/\d{1,2}\/\d{4}$/,
+            /^\d{4}-\d{2}-\d{2}$/,
+            /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}$/i
+          ];
+          
+          const looksLikeDate = datePatterns.some(pattern => pattern.test(textContent));
+          
+          // Only remove if it has date class AND looks like a date (not too long)
+          if (looksLikeDate || textContent.length < 50) {
+            elementsToRemove.push(element);
+          }
+        }
+      } catch (error) {
+        console.warn(`   ⚠️ Error checking date element: ${error.message}`);
+      }
+    });
+    
+    // Remove identified elements
+    elementsToRemove.forEach(element => {
+      try {
+        if (element.parentNode) {
+          element.remove();
+          removedCount++;
+        }
+      } catch (error) {
+        console.warn(`   ⚠️ Could not remove date element: ${error.message}`);
+      }
+    });
+    
+    if (removedCount > 0) {
+      console.log(`   📅 Removed ${removedCount} date display elements`);
+    }
+  }
+
+  /**
    * Process single HTML file for WordPress
    * @private
    * @param {string} filename - HTML filename
@@ -1257,9 +2062,16 @@ export class ContentProcessorService {
       // Extract base domain from filename for link processing
       let baseUrl = filename.replace('.html', '');
       
-      // Extract domain portion (everything before the third underscore or first content indicator)
+      // Extract domain portion from filename
+      // Filenames can be in format: www.domain.com_page-slug or www_domain_com_page-slug
       const parts = baseUrl.split('_');
-      if (parts.length >= 3) {
+      
+      // If first part contains periods, it's already a properly formatted domain
+      if (parts[0].includes('.')) {
+        baseUrl = parts[0];
+      }
+      // Otherwise, parse underscore-separated domain parts
+      else if (parts.length >= 3) {
         // Find domain parts (typically www_domain_com or domain_com pattern)
         let domainParts = [];
         for (let i = 0; i < parts.length; i++) {
@@ -1270,18 +2082,43 @@ export class ContentProcessorService {
           }
         }
         baseUrl = domainParts.join('_');
+        
+        // Convert underscore format to proper domain format
+        baseUrl = baseUrl
+          .replace(/^www_/, 'www.')
+          .replace(/_/g, '.')
+          .replace(/\.$/, ''); // Remove trailing dot if any
       }
-      
-      // Convert to proper domain format
-      baseUrl = baseUrl
-        .replace(/^www_/, 'www.')
-        .replace(/_/g, '.')
-        .replace(/\.$/, ''); // Remove trailing dot if any
       
       console.log(`   🌐 Detected base domain: ${baseUrl}`);
       
-      // Clean all elements - remove unwanted attributes and classes
-      const allElements = body.querySelectorAll('*');
+      // IMPORTANT: Detect content type BEFORE cleaning (needs original classes)
+      const contentType = this._detectContentType(html, filename);
+      console.log(`   📝 Content type: ${contentType.type} (${contentType.confidence}% confidence) - ${contentType.reason}`);
+      
+      // STEP 0: Convert CSS background images to actual img tags (before cleaning removes styles)
+      this._convertBackgroundImagesToImg(body, filename);
+      
+      // STEP 1: Remove elements by class BEFORE cleaning removes all classes
+      // This must happen first while we can still identify elements by their classes
+      this._removeCustomSelectors(body, filename);
+      this._removeSidebarElements(body, filename);
+      this._removeDateElements(body, filename);
+      
+      // STEP 2: Remove post-specific blocks (while classes still exist)
+      if (contentType.type === 'post') {
+        this._removeDealershipBlocks(body, filename);
+        this._removeTestimonialBlocks(body, filename);
+        this._removeBlogElements(body, filename);
+      }
+      
+      // STEP 3: Remove forms and footers (before cleaning)
+      this._removeForms(body);
+      this._removeFooters(body);
+      
+      // STEP 4: Now clean all elements - remove unwanted attributes and classes
+      // Convert to Array to avoid issues with live NodeLists
+      const allElements = Array.from(body.querySelectorAll('*'));
       allElements.forEach(element => {
         this._cleanElement(element);
       });
@@ -1306,28 +2143,14 @@ export class ContentProcessorService {
         }
       }
       
-      // Update links
+      // STEP 5: Update links (after cleaning but preserving href attributes)
       this._updateLinks(body, baseUrl);
       
-      // Update image sources
+      // STEP 6: Update image sources
       this._updateImageSources(body, imageMapping, dealerConfig);
       
-      // Remove forms and footers
-      this._removeForms(body);
-      this._removeFooters(body);
-      
-      // Remove third-party copyright information
+      // STEP 7: Remove third-party copyright information
       this._removeCopyright(body);
-      
-      // Detect content type and remove post-specific blocks
-      const contentType = this._detectContentType(html, filename);
-      console.log(`   📝 Content type: ${contentType.type} (${contentType.confidence}% confidence) - ${contentType.reason}`);
-      
-      if (contentType.type === 'post') {
-        this._removeDealershipBlocks(body, filename);
-        this._removeTestimonialBlocks(body, filename);
-        this._removeBlogElements(body, filename);
-      }
       
       // Remove H1 tags since WordPress handles titles automatically
       // Convert to Array to avoid live NodeList issues
@@ -1342,14 +2165,26 @@ export class ContentProcessorService {
         }
       });
       
+      // Convert Microsoft Word-style lists to proper HTML lists
+      this._convertWordListsToHtml(body);
+      
       // Apply Bootstrap table styling
       this._applyBootstrapTables(body);
+      
+      // Add consistent spacing between content elements
+      this._addContentSpacing(body);
       
       // Apply aggressive cleanup to remove empty elements and unnecessary nesting
       const cleanedBody = this._aggressiveCleanup(body);
       
       // Get final HTML
       const cleanHtml = cleanedBody.innerHTML;
+      
+      // Log Bootstrap class preservation summary
+      const classMatches = cleanHtml.match(/class="[^"]+"/g) || [];
+      if (classMatches.length > 0) {
+        console.log(`   ✨ Preserved ${classMatches.length} Bootstrap layout classes`);
+      }
       
       // Save processed file
       await fs.writeFile(outputPath, cleanHtml, 'utf-8');

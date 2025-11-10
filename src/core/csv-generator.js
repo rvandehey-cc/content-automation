@@ -35,6 +35,143 @@ export class CSVGeneratorService {
   }
 
   /**
+   * Extract article date from HTML content
+   * Looks for date elements with common class names and parses various date formats
+   * @private
+   * @param {string} html - HTML content
+   * @returns {string|null} Extracted date in MySQL format (YYYY-MM-DD HH:MM:SS) or null
+   */
+  _extractArticleDate(html) {
+    try {
+      const dom = new JSDOM(html);
+      const document = dom.window.document;
+      
+      // Common date selectors - ordered by specificity
+      const dateSelectors = [
+        '.article-date',
+        '.post-date',
+        '.published',
+        '.date',
+        '.entry-date',
+        '.publish-date',
+        'time[datetime]',
+        '[class*="date"]',
+        '[class*="published"]'
+      ];
+      
+      for (const selector of dateSelectors) {
+        const element = document.querySelector(selector);
+        if (!element) continue;
+        
+        // Try to get date from datetime attribute (most reliable)
+        if (element.hasAttribute('datetime')) {
+          const datetime = element.getAttribute('datetime');
+          const parsed = this._parseDate(datetime);
+          if (parsed) return parsed;
+        }
+        
+        // Try to parse from text content
+        const textContent = element.textContent.trim();
+        if (textContent) {
+          const parsed = this._parseDate(textContent);
+          if (parsed) return parsed;
+        }
+      }
+      
+      return null;
+      
+    } catch (error) {
+      console.warn(`Error extracting article date: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Parse various date formats and return MySQL datetime format
+   * @private
+   * @param {string} dateString - Date string to parse
+   * @returns {string|null} Date in MySQL format (YYYY-MM-DD HH:MM:SS) or null
+   */
+  _parseDate(dateString) {
+    if (!dateString) return null;
+    
+    try {
+      // Common date patterns to match
+      const patterns = [
+        // ISO 8601: 2023-03-08T00:00:00 or 2023-03-08
+        /(\d{4})-(\d{2})-(\d{2})(T|\s+)?(\d{2}:\d{2}:\d{2})?/,
+        // US format: March 8, 2023 or 03/08/2023
+        /(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/i,
+        /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
+        // European format: 8 March 2023
+        /(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i
+      ];
+      
+      // Try ISO format first (most reliable)
+      const isoMatch = dateString.match(patterns[0]);
+      if (isoMatch) {
+        const [, year, month, day, , time] = isoMatch;
+        const timeStr = time || '00:00:00';
+        return `${year}-${month}-${day} ${timeStr}`;
+      }
+      
+      // Try month name formats
+      const monthNameMatch = dateString.match(patterns[1]);
+      if (monthNameMatch) {
+        const [, monthName, day, year] = monthNameMatch;
+        const monthMap = {
+          'january': '01', 'february': '02', 'march': '03', 'april': '04',
+          'may': '05', 'june': '06', 'july': '07', 'august': '08',
+          'september': '09', 'october': '10', 'november': '11', 'december': '12'
+        };
+        const month = monthMap[monthName.toLowerCase()];
+        const paddedDay = String(day).padStart(2, '0');
+        return `${year}-${month}-${paddedDay} 00:00:00`;
+      }
+      
+      // Try US numeric format (MM/DD/YYYY)
+      const usDateMatch = dateString.match(patterns[2]);
+      if (usDateMatch) {
+        const [, month, day, year] = usDateMatch;
+        const paddedMonth = String(month).padStart(2, '0');
+        const paddedDay = String(day).padStart(2, '0');
+        return `${year}-${paddedMonth}-${paddedDay} 00:00:00`;
+      }
+      
+      // Try European format (DD Month YYYY)
+      const euDateMatch = dateString.match(patterns[3]);
+      if (euDateMatch) {
+        const [, day, monthName, year] = euDateMatch;
+        const monthMap = {
+          'january': '01', 'february': '02', 'march': '03', 'april': '04',
+          'may': '05', 'june': '06', 'july': '07', 'august': '08',
+          'september': '09', 'october': '10', 'november': '11', 'december': '12'
+        };
+        const month = monthMap[monthName.toLowerCase()];
+        const paddedDay = String(day).padStart(2, '0');
+        return `${year}-${month}-${paddedDay} 00:00:00`;
+      }
+      
+      // Last resort: try JavaScript Date parser
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+      }
+      
+      return null;
+      
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
    * Extract title from HTML content
    * @private
    * @param {string} html - HTML content
@@ -155,7 +292,7 @@ export class CSVGeneratorService {
       .replace(/[^a-z0-9-]/g, '-')  // Replace any other chars with hyphens  
       .replace(/-+/g, '-')          // Replace multiple hyphens with single
       .replace(/^-|-$/g, '')        // Remove leading/trailing hyphens
-      .substring(0, 200);           // Reasonable length limit
+      .substring(0, 255);           // Increased to match filesystem limits
   }
 
   /**
@@ -379,18 +516,26 @@ export class CSVGeneratorService {
       // Extract excerpt (plain text)
       const excerpt = this._extractExcerpt(cleanContent);
       
-      // Generate current date for post date
-      const currentDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      // Try to extract article date from original HTML (before classes were removed)
+      const articleDate = this._extractArticleDate(originalHtml);
+      
+      // Use article date if found, otherwise use current date
+      const postDate = articleDate || new Date().toISOString().slice(0, 19).replace('T', ' ');
+      
+      // Log if we found an article date
+      if (articleDate) {
+        console.log(`   📅 Found article date: ${articleDate}`);
+      }
       
       return {
         post_title: title,
         post_content: cleanContent,
         post_type: contentType.type,
         post_status: 'publish',
-        post_date: currentDate,
+        post_date: postDate,
         post_name: slug,
         post_excerpt: excerpt,
-        post_category: contentType.type === 'post' ? 'Imported Content' : '',
+        post_category: contentType.type === 'post' ? 'Uncategorized' : '',
         post_tags: '',
         filename: filename,
         detection_confidence: contentType.confidence,

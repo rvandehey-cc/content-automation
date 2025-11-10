@@ -90,6 +90,52 @@ export class CLI {
   }
 
   /**
+   * Ask user for multiple element selectors to remove/ignore during sanitization
+   * @returns {Promise<Array<string>>} Array of CSS selectors
+   */
+  async askForCustomSelectors() {
+    console.log('\n🎯 Custom Element Removal');
+    console.log('='.repeat(60));
+    console.log('You can specify CSS selectors for elements to remove or ignore during sanitization.');
+    console.log('Examples:');
+    console.log('  • .advertisement, .sidebar-widget');
+    console.log('  • #social-share, [class*="popup"]');
+    console.log('  • div.newsletter, section.promotional');
+    console.log('  • Leave empty to skip custom removal');
+    console.log('');
+
+    const selectors = [];
+    let continueAdding = true;
+    let selectorIndex = 1;
+
+    while (continueAdding) {
+      const selector = await this.askInput(
+        `Enter CSS selector ${selectorIndex} (or press Enter to finish):`,
+        ''
+      );
+
+      if (selector.trim()) {
+        selectors.push(selector.trim());
+        selectorIndex++;
+        console.log(`   ✅ Added: ${selector.trim()}`);
+      } else {
+        continueAdding = false;
+      }
+    }
+
+    if (selectors.length > 0) {
+      console.log(`\n✅ Added ${selectors.length} custom selector(s) for removal:`);
+      selectors.forEach((sel, idx) => {
+        console.log(`   ${idx + 1}. ${sel}`);
+      });
+    } else {
+      console.log('\n⏭️  No custom selectors added - using default sanitization');
+    }
+
+    return selectors;
+  }
+
+  /**
    * Display step header with formatting
    * @param {string|number} stepNumber - Step number or identifier
    * @param {string} title - Step title

@@ -56,6 +56,24 @@ export async function writeJSON(filePath, data, options = { spaces: 2 }) {
 }
 
 /**
+ * Read text file safely
+ * @param {string} filePath - Path to text file
+ * @param {string} defaultValue - Default value if file doesn't exist
+ * @returns {Promise<string>} File contents or default value
+ */
+export async function readFile(filePath, defaultValue = '') {
+  try {
+    if (await exists(filePath)) {
+      return await fs.readFile(filePath, 'utf-8');
+    }
+    return defaultValue;
+  } catch (error) {
+    console.warn(`Failed to read file ${filePath}:`, error.message);
+    return defaultValue;
+  }
+}
+
+/**
  * Get all files matching a pattern
  * @param {string} dirPath - Directory to search
  * @param {RegExp|string} pattern - Pattern to match (regex or extension)

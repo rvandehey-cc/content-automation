@@ -348,7 +348,87 @@ class ContentAutomationPipeline {
       console.log('\n⏭️  Skipping image processing - using existing images');
     }
 
+    // Prompt for WordPress image upload settings
+    await this._getWordPressImageSettings();
+
     await this._pause(1000);
+  }
+
+  /**
+   * Get WordPress image upload settings from user
+   * @private
+   */
+  async _getWordPressImageSettings() {
+    console.log('\n📸 WORDPRESS IMAGE UPLOAD SETTINGS');
+    console.log('When images are uploaded to WordPress, they need to match the expected URL structure.');
+    console.log('Format: https://di-uploads-development.dealerinspire.com/{dealer-slug}/uploads/{year}/{month}/{filename}');
+    console.log('');
+
+    const processingConfig = config.get('processor');
+    
+    // Check if we already have settings
+    if (processingConfig.dealerSlug && processingConfig.imageYear && processingConfig.imageMonth) {
+      console.log('📋 Current WordPress image settings:');
+      console.log(`   🏢 Dealer Slug: ${processingConfig.dealerSlug}`);
+      console.log(`   📅 Upload Date: ${processingConfig.imageYear}/${processingConfig.imageMonth}`);
+      console.log('');
+      
+      const useExisting = await cli.askPermission(
+        'Use existing WordPress image settings?',
+        true
+      );
+      
+      if (useExisting) {
+        console.log('✅ Using existing WordPress image settings');
+        return;
+      }
+    }
+
+    // Get dealer slug
+    const dealerSlug = await cli.askInput(
+      '🏢 Enter the dealer slug (e.g., "albanytoyota", "delrayhyundai"):',
+      processingConfig.dealerSlug || ''
+    );
+
+    if (!dealerSlug.trim()) {
+      console.log('⚠️  No dealer slug provided - image URLs will not be updated');
+      return;
+    }
+
+    // Get current date for defaults
+    const now = new Date();
+    const currentYear = now.getFullYear().toString();
+    const currentMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+
+    // Get year
+    const imageYear = await cli.askInput(
+      `📅 Enter the upload year (default: ${currentYear}):`,
+      processingConfig.imageYear || currentYear
+    );
+
+    // Get month
+    const imageMonth = await cli.askInput(
+      `📅 Enter the upload month (01-12, default: ${currentMonth}):`,
+      processingConfig.imageMonth || currentMonth
+    );
+
+    // Validate month
+    const monthNum = parseInt(imageMonth);
+    if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+      console.log('⚠️  Invalid month - using current month');
+      imageMonth = currentMonth;
+    }
+
+    // Update configuration
+    config.update('processor', {
+      dealerSlug: dealerSlug.trim(),
+      imageYear: imageYear.trim(),
+      imageMonth: imageMonth.padStart(2, '0'),
+      updateImageUrls: true
+    });
+
+    console.log('✅ WordPress image settings saved');
+    console.log(`   🌐 Base URL: https://di-uploads-development.dealerinspire.com/${dealerSlug.trim()}/uploads/${imageYear.trim()}/${imageMonth.padStart(2, '0')}/`);
   }
 
   /**
@@ -388,11 +468,17 @@ class ContentAutomationPipeline {
         throw new Error('Pipeline stopped - HTML sanitization required');
       }
 
+      // Ask for custom element selectors to remove/ignore
+      const customSelectors = await cli.askForCustomSelectors();
+
       console.log('\n🧹 Starting HTML sanitization...');
       
       try {
-        // Configure processor based on image bypass setting
-        const processorOptions = this.bypassImages ? { nonInteractive: true } : { nonInteractive: true };
+        // Configure processor based on image bypass setting and custom selectors
+        const processorOptions = {
+          nonInteractive: true,
+          customRemoveSelectors: customSelectors.length > 0 ? customSelectors : undefined
+        };
         this.processorService = new ContentProcessorService(processorOptions);
         
         const results = await this.processorService.processContent();
