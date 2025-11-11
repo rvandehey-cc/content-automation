@@ -1,6 +1,6 @@
 /**
  * @fileoverview Image downloading service for scraped content
- * @author Content Automation Team
+ * @author Ryan Vandehey
  * @version 1.0.0
  */
 

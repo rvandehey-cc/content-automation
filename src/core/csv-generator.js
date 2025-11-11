@@ -1,6 +1,6 @@
 /**
  * @fileoverview WordPress CSV generator service for Really Simple CSV Importer
- * @author Content Automation Team
+ * @author Ryan Vandehey
  * @version 1.0.0
  */
 

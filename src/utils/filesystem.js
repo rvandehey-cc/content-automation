@@ -1,6 +1,6 @@
 /**
  * @fileoverview Common file system utilities
- * @author Content Automation Team
+ * @author Ryan Vandehey
  * @version 1.0.0
  */
 

@@ -1,6 +1,6 @@
 /**
  * @fileoverview Centralized error handling and logging utilities
- * @author Content Automation Team
+ * @author Ryan Vandehey
  * @version 1.0.0
  */
 

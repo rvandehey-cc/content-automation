@@ -1,6 +1,6 @@
 /**
  * @fileoverview Cleanup Script for Content Automation System
- * @author Content Automation Team
+ * @author Ryan Vandehey
  * @version 2.0.0
  * 
  * Safely removes all generated content files, configuration data, and logs

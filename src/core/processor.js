@@ -1,6 +1,6 @@
 /**
  * @fileoverview Content processing service for WordPress
- * @author Content Automation Team
+ * @author Ryan Vandehey
  * @version 1.0.0
  */
 

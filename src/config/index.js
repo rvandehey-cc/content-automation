@@ -1,6 +1,6 @@
 /**
  * @fileoverview Centralized configuration management for the content automation system
- * @author Content Automation Team
+ * @author Ryan Vandehey
  * @version 1.0.0
  */
 

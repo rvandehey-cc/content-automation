@@ -2,7 +2,7 @@
 
 /**
  * @fileoverview Main CLI application for content automation
- * @author Content Automation Team
+ * @author Ryan Vandehey
  * @version 1.0.0
  */
 

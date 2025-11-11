@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @fileoverview CLI for running content processor independently
- * @author Content Automation Team
+ * @author Ryan Vandehey
  * @version 1.0.0
  */
 
