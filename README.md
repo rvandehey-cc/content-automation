@@ -26,7 +26,7 @@ This system automates the entire process of extracting content from websites and
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/vande012/wp-content-automation
 cd headless-scrape
 
 # Install dependencies
