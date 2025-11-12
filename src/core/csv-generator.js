@@ -20,6 +20,15 @@ export class CSVGeneratorService {
     this.config = { ...config.get('csv'), ...options };
   }
 
+  // Constants for reuse
+  static MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 
+                   'july', 'august', 'september', 'october', 'november', 'december',
+                   'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  
+  static FOLDER_PREFIXES = ['blog', 'blogs', 'post', 'posts', 'page', 'pages', 'article', 'articles'];
+  
+  static FILE_EXTENSIONS = /^(html?|php|asp|jsp|htm)$/i;
+
   /**
    * Escape CSV special characters and ensure all fields are quoted
    * @private
@@ -32,6 +41,105 @@ export class CSVGeneratorService {
     const str = String(text).replace(/"/g, '""');
     // Always quote all fields as required by Really Simple CSV Importer
     return `"${str}"`;
+  }
+
+  /**
+   * Wrap HTML fragment in document structure for JSDOM parsing
+   * @private
+   * @param {string} html - HTML content (may be fragment)
+   * @returns {string} Full HTML document
+   */
+  _wrapHtmlForParsing(html) {
+    const htmlToParse = html.trim();
+    if (!htmlToParse.includes('<html') && !htmlToParse.includes('<body')) {
+      return `<html><body>${htmlToParse}</body></html>`;
+    }
+    return htmlToParse;
+  }
+
+  /**
+   * Remove blog prefixes from title text
+   * @private
+   * @param {string} title - Title text
+   * @returns {string} Cleaned title
+   */
+  _removeBlogPrefix(title) {
+    return title
+      .replace(/^blog\s*[:-]\s*/i, '')  // Remove "Blog:" or "Blog -" at start
+      .replace(/^blog\s+/i, '')         // Remove "Blog " at start
+      .trim();
+  }
+
+  /**
+   * Normalize text to slug format
+   * @private
+   * @param {string} text - Text to normalize
+   * @returns {string} URL-friendly slug
+   */
+  _normalizeSlug(text) {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')  // Replace non-alphanumeric with hyphens
+      .replace(/-+/g, '-')          // Replace multiple hyphens with single
+      .replace(/^-|-$/g, '');       // Remove leading/trailing hyphens
+  }
+
+  /**
+   * Remove file extensions from filename
+   * @private
+   * @param {string} filename - Filename with extensions
+   * @returns {string} Filename without extensions
+   */
+  _removeFileExtensions(filename) {
+    let cleaned = filename;
+    while (cleaned.endsWith('.html') || cleaned.endsWith('.htm')) {
+      cleaned = cleaned.endsWith('.html') ? cleaned.slice(0, -5) : cleaned.slice(0, -4);
+    }
+    return cleaned.replace(/[-_]htm$/i, '').replace(/[-_]html$/i, '');
+  }
+
+  /**
+   * Remove malformed tags and imgnone from HTML string
+   * @private
+   * @param {string} html - HTML content
+   * @returns {string} Cleaned HTML
+   */
+  _removeMalformedTags(html) {
+    return html
+      .replace(/<imgnone[^>]*>/gi, '')
+      .replace(/<\/imgnone[^>]*>/gi, '')
+      .replace(/<[^>]*imgnone[^>]*>/gi, '')
+      .replace(/<[^<>\s]+'"[^>]*>/gi, '')  // Tags like <tag'">
+      .replace(/<\/[^<>\s]+'"[^>]*>/gi, '') // Closing tags like </tag'">
+      .replace(/imgnone/gi, '');
+  }
+
+  /**
+   * Find domain end index in filename parts
+   * @private
+   * @param {Array<string>} parts - Filename parts split by underscore
+   * @returns {number} Index where domain ends
+   */
+  _findDomainEndIndex(parts) {
+    // Look for TLD (.com, .org, etc.)
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].match(/^(com|org|net|edu|gov|co|io)$/)) {
+        return i;
+      }
+    }
+    
+    // Check if first part is full domain
+    if (parts.length >= 2 && parts[0].includes('.') && parts[0].match(/\.(com|org|net|edu|gov|co|io)$/)) {
+      return 0;
+    }
+    
+    // Traditional www.domain.com format
+    if (parts.length >= 3 && parts[0] === 'www') {
+      return 2;
+    }
+    
+    // Fallback
+    return Math.min(1, parts.length - 2);
   }
 
   /**
@@ -173,126 +281,190 @@ export class CSVGeneratorService {
 
   /**
    * Extract title from HTML content
+   * H1 from scraped-content is the primary source for post/page title
    * @private
-   * @param {string} html - HTML content
+   * @param {string} html - HTML content (should be from output/scraped-content/)
    * @param {string} filename - Fallback filename
    * @returns {string} Extracted title
    */
+  /**
+   * Extract and clean title text from element
+   * @private
+   * @param {Element} element - DOM element
+   * @returns {string|null} Cleaned title or null
+   */
+  _extractTitleFromElement(element) {
+    if (!element || !element.textContent) return null;
+    const text = element.textContent.trim().replace(/\s+/g, ' ').trim();
+    return text.length > 3 ? this._removeBlogPrefix(text) : null;
+  }
+
   _extractTitle(html, filename) {
     try {
-      const dom = new JSDOM(html);
+      const dom = new JSDOM(this._wrapHtmlForParsing(html));
       const document = dom.window.document;
       
-      // Try multiple selectors for title
-      const titleSelectors = [
-        'h1',
-        '.title',
-        '.post-title',
-        '.article-title',
-        '.page-title',
-        'title'
-      ];
-      
-      for (const selector of titleSelectors) {
-        const element = document.querySelector(selector);
-        if (element && element.textContent.trim()) {
-          return element.textContent.trim();
+      // PRIMARY: H1 is the definitive post/page title from scraped content
+      const h1Elements = document.querySelectorAll('h1');
+      for (const h1Element of h1Elements) {
+        const cleanedTitle = this._extractTitleFromElement(h1Element);
+        if (cleanedTitle) {
+          console.log(`   📝 Extracted title from H1: "${cleanedTitle.substring(0, 60)}${cleanedTitle.length > 60 ? '...' : ''}"`);
+          return cleanedTitle;
         }
       }
       
-      // Fallback to filename
-      return filename
-        .replace('.html', '')
+      // Log warning
+      if (h1Elements.length > 0) {
+        console.warn(`   ⚠️  H1 found in ${filename} but it's empty or too short`);
+      } else {
+        console.warn(`   ⚠️  No H1 found in ${filename}, trying fallback selectors...`);
+      }
+      
+      // Fallback selectors
+      const fallbackSelectors = ['.title', '.post-title', '.article-title', '.page-title', '.entry-title', 'title'];
+      for (const selector of fallbackSelectors) {
+        const element = document.querySelector(selector);
+        const fallbackTitle = this._extractTitleFromElement(element);
+        if (fallbackTitle) {
+          console.warn(`   ⚠️  Using ${selector} as fallback: "${fallbackTitle.substring(0, 60)}${fallbackTitle.length > 60 ? '...' : ''}"`);
+          return fallbackTitle;
+        }
+      }
+      
+      // Try to extract from filename
+      const filenameTitle = this._extractTitleFromFilename(filename);
+      if (filenameTitle && filenameTitle.length > 10 && /[a-z]/.test(filenameTitle)) {
+        const titleFromFilename = filenameTitle
+          .split('-')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        console.warn(`   ⚠️  Using filename-derived title: "${titleFromFilename.substring(0, 60)}${titleFromFilename.length > 60 ? '...' : ''}"`);
+        return titleFromFilename;
+      }
+      
+      // Final fallback
+      console.warn(`   ⚠️  No title found in ${filename}, using filename as fallback`);
+      const cleaned = this._removeFileExtensions(filename)
         .replace(/^www\./, '')
         .replace(/_/g, ' ')
         .replace(/\b\w/g, l => l.toUpperCase());
+      return cleaned;
         
     } catch (error) {
       console.warn(`Error extracting title from ${filename}: ${error.message}`);
-      return filename.replace('.html', '').replace(/_/g, ' ');
+      return this._removeFileExtensions(filename).replace(/_/g, ' ');
     }
   }
 
   /**
-   * Generate slug from filename preserving original URL structure
+   * Extract title-like text from filename
    * @private
-   * @param {string} filename - HTML filename (e.g., www.delrayhyundai.com_2025-Hyundai-IONIQ9-vs-2025-Kia-EV9.html)
-   * @param {string} title - Content title (unused, kept for compatibility)
-   * @returns {string} URL-friendly slug extracted from original URL
+   * @param {string} filename - Filename to extract from
+   * @returns {string} Extracted title text
    */
-  _generateSlug(filename, title) {
-    // Extract the original URL path from filename
-    // Filename format: domain_path-parts.html (or .html.html for double extensions)
-    // Example: www.essentialford.com_2025-ford-expedition-vs-2025-jeep-wagoneer-.html.html
+  _extractTitleFromFilename(filename) {
+    return this._removeFileExtensions(filename)
+      .replace(/^www\./, '')
+      .replace(/^[^_]+_/, '') // Remove domain part
+      .replace(/_\d{4}_[a-z]+_\d{1,2}_/i, '') // Remove date patterns
+      .replace(/^blog/i, '')
+      .replace(/^post_/i, '')
+      .replace(/_/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  }
+
+  /**
+   * Generate slug from filename preserving original URL structure
+   * Removes domain, path prefixes (blog, date folders), and file extensions
+   * @private
+   * @param {string} filename - HTML filename (e.g., www.nissanofstockton.com_blog_2025_october_11_youll-love-the-tech-packed-2025-nissan-sentra.htm.html)
+   * @param {string} title - Content title (unused, kept for compatibility)
+   * @returns {string} URL-friendly slug with only the actual page/post name
+   */
+  /**
+   * Remove date patterns from path parts
+   * @private
+   * @param {Array<string>} pathParts - Path segments
+   * @returns {Array<string>} Path segments with dates removed
+   */
+  _removeDatePatterns(pathParts) {
+    const months = CSVGeneratorService.MONTHS;
     
-    // Remove all .html extensions (handles both .html and .html.html cases)
-    let baseFilename = filename;
-    while (baseFilename.endsWith('.html')) {
-      baseFilename = baseFilename.slice(0, -5); // Remove '.html'
+    while (pathParts.length >= 3) {
+      const [part0, part1, part2] = pathParts.map(p => p.toLowerCase());
+      
+      // Year-month-day pattern (e.g., 2025, october, 11)
+      if (part0.match(/^\d{4}$/) && months.includes(part1) && part2.match(/^\d{1,2}$/)) {
+        pathParts.splice(0, 3);
+        continue;
+      }
+      
+      // Year-month pattern (e.g., 2025, october)
+      if (part0.match(/^\d{4}$/) && months.includes(part1)) {
+        pathParts.splice(0, 2);
+        continue;
+      }
+      
+      // Year-month numeric (e.g., 2025, 07)
+      if (part0.match(/^\d{4}$/) && part1.match(/^\d{1,2}$/)) {
+        pathParts.splice(0, 2);
+        continue;
+      }
+      
+      break; // No more date patterns
     }
     
+    return pathParts;
+  }
+
+  _generateSlug(filename, title) {
+    const baseFilename = this._removeFileExtensions(filename);
     const parts = baseFilename.split('_');
     
     if (parts.length < 2) {
-      // Fallback to cleaned filename if pattern doesn't match
-      return baseFilename
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
-    }
-    
-    // Find where domain ends (look for .com, .org, etc.)
-    let domainEndIndex = -1;
-    for (let i = 0; i < parts.length; i++) {
-      if (parts[i].match(/^(com|org|net|edu|gov|co|io)$/)) {
-        domainEndIndex = i;
-        break;
-      }
-    }
-    
-    // If no TLD found, check if first part looks like a full domain
-    if (domainEndIndex === -1) {
-      if (parts.length >= 2 && parts[0].includes('.') && parts[0].match(/\.(com|org|net|edu|gov|co|io)$/)) {
-        // First part is a full domain like "www.example.com"
-        domainEndIndex = 0;
-      } else if (parts.length >= 3 && parts[0] === 'www') {
-        // Traditional www.domain.com split format
-        domainEndIndex = 2;
-      } else {
-        // Fallback: assume first part is domain
-        domainEndIndex = Math.min(1, parts.length - 2);
-      }
+      return this._normalizeSlug(baseFilename);
     }
     
     // Extract path parts after domain
+    const domainEndIndex = this._findDomainEndIndex(parts);
     let pathParts = parts.slice(domainEndIndex + 1);
     
-    // Remove any file extension parts that might have slipped through
-    pathParts = pathParts.filter(part => !part.match(/^(html?|php|asp|jsp)$/i));
-    
-    if (pathParts.length === 0) {
-      // No path found, use title or filename as fallback
-      if (title && title.length > 3) {
-        return title
-          .toLowerCase()
-          .replace(/[^a-z0-9\s-]/g, '')
-          .replace(/\s+/g, '-')
-          .replace(/-+/g, '-')
-          .replace(/^-|-$/g, '');
-      }
-      return baseFilename;
+    // Remove folder prefixes
+    while (pathParts.length > 0 && CSVGeneratorService.FOLDER_PREFIXES.includes(pathParts[0].toLowerCase())) {
+      pathParts.shift();
     }
     
-    // Rejoin path parts and ensure it's URL-friendly
-    return pathParts.join('_')
-      .toLowerCase()
-      .replace(/_/g, '-')           // Convert underscores back to hyphens
-      .replace(/[^a-z0-9-]/g, '-')  // Replace any other chars with hyphens  
-      .replace(/-+/g, '-')          // Replace multiple hyphens with single
-      .replace(/^-|-$/g, '')        // Remove leading/trailing hyphens
-      .substring(0, 255);           // Increased to match filesystem limits
+    // Remove numeric IDs
+    while (pathParts.length > 0 && pathParts[0].match(/^\d+$/)) {
+      pathParts.shift();
+    }
+    
+    // Remove date patterns
+    pathParts = this._removeDatePatterns(pathParts);
+    
+    // Filter to keep only segments with letters
+    pathParts = pathParts.filter(part => 
+      !part.match(/^\d+$/) && 
+      !part.match(CSVGeneratorService.FILE_EXTENSIONS) && 
+      /[a-z]/i.test(part)
+    );
+    
+    // Take ONLY the last segment
+    const finalSlug = pathParts.length > 0 ? pathParts[pathParts.length - 1] : null;
+    
+    if (!finalSlug || finalSlug.length < 3) {
+      return title && title.length > 3 
+        ? this._normalizeSlug(title)
+        : this._normalizeSlug(baseFilename);
+    }
+    
+    // Clean and normalize final slug
+    let slug = this._normalizeSlug(finalSlug);
+    slug = slug.replace(/-htm$/i, '').replace(/-html$/i, '');
+    
+    return slug.substring(0, 255);
   }
 
   /**
@@ -314,64 +486,77 @@ export class CSVGeneratorService {
       };
     }
 
+    // Pre-compute lowercase HTML for multiple checks
+    const htmlLower = html.toLowerCase();
+
     // Use custom selectors if provided
     if (customSelectors) {
       try {
-        const dom = new JSDOM(html);
+        const dom = new JSDOM(this._wrapHtmlForParsing(html));
         const document = dom.window.document;
 
         // Helper function to convert plain class names to CSS selectors
         const normalizeSelector = (selector) => {
           if (!selector) return selector;
-          
-          // If it doesn't start with . # [ or contain spaces/special chars, treat as class name
           if (!/^[.#\[]/.test(selector) && !/[\s>+~\[]/.test(selector)) {
             return `.${selector}`;
           }
           return selector;
         };
 
-        // Check for post selector
-        if (customSelectors.post) {
-          const postSelector = normalizeSelector(customSelectors.post);
-          const postElements = document.querySelectorAll(postSelector);
+        // Check selector matches (supports comma-separated)
+        const checkSelectors = (selectorString, type) => {
+          if (!selectorString) return null;
+          const selectors = selectorString.split(',').map(s => s.trim()).filter(s => s);
           
-          if (postElements.length > 0) {
-            return { 
-              type: 'post', 
-              confidence: 95, 
-              reason: `Found post class: ${customSelectors.post} (${postElements.length} elements)` 
-            };
+          // Check DOM matches first
+          for (const selectorStr of selectors) {
+            const normalized = normalizeSelector(selectorStr);
+            const elements = document.querySelectorAll(normalized);
+            if (elements.length > 0) {
+              return { 
+                type, 
+                confidence: 95, 
+                reason: `Found ${type} selector: ${selectorStr} (${elements.length} elements)` 
+              };
+            }
           }
-        }
-
-        // Check for page selector
-        if (customSelectors.page) {
-          const pageSelector = normalizeSelector(customSelectors.page);
-          const pageElements = document.querySelectorAll(pageSelector);
           
-          if (pageElements.length > 0) {
-            return { 
-              type: 'page', 
-              confidence: 95, 
-              reason: `Found page class: ${customSelectors.page} (${pageElements.length} elements)` 
-            };
+          // Try text matching as fallback
+          for (const selectorStr of selectors) {
+            const normalized = normalizeSelector(selectorStr);
+            const textToMatch = normalized.startsWith('.') ? normalized.substring(1) : normalized;
+            if (htmlLower.includes(textToMatch.toLowerCase())) {
+              return {
+                type,
+                confidence: 85,
+                reason: `Found ${type} selector (text match): ${selectorStr}`
+              };
+            }
           }
-        }
+          
+          return null;
+        };
 
-        // FIXED LOGIC: If post selector is defined but not found, default to page
+        // Check post selectors
+        const postResult = checkSelectors(customSelectors.post, 'post');
+        if (postResult) return postResult;
+
+        // Check page selectors
+        const pageResult = checkSelectors(customSelectors.page, 'page');
+        if (pageResult) return pageResult;
+
+        // Handle fallback logic
         if (customSelectors.post && !customSelectors.page) {
           console.log(`   📄 Post class '${customSelectors.post}' not found in ${filename}, defaulting to page`);
           return { type: 'page', confidence: 80, reason: `Post class not found, defaulting to page` };
         }
 
-        // If page selector is defined but not found, default to post
         if (customSelectors.page && !customSelectors.post) {
           console.log(`   📝 Page class '${customSelectors.page}' not found in ${filename}, defaulting to post`);
           return { type: 'post', confidence: 80, reason: `Page class not found, defaulting to post` };
         }
 
-        // If both selectors defined but neither found, use automatic detection
         if (customSelectors.post && customSelectors.page) {
           console.log(`   ⚠️  Both custom classes provided but not found in ${filename}, using automatic detection`);
         }
@@ -380,9 +565,32 @@ export class CSVGeneratorService {
       }
     }
 
+    // HIGH PRIORITY: Check for <article> tag - definitive post indicator
+    if (htmlLower.includes('<article')) {
+      try {
+        const dom = new JSDOM(this._wrapHtmlForParsing(html));
+        const document = dom.window.document;
+        const articleElements = document.querySelectorAll('article');
+        if (articleElements && articleElements.length > 0) {
+          return {
+            type: 'post',
+            confidence: 95,
+            reason: `Found <article> tag (${articleElements.length} elements) - definitive post indicator`
+          };
+        }
+      } catch (error) {
+        // Fallback: already checked htmlLower above
+        return {
+          type: 'post',
+          confidence: 90,
+          reason: 'Found <article> tag (text match) - definitive post indicator'
+        };
+      }
+    }
+
     // Fallback to automatic content analysis
     try {
-      const dom = new JSDOM(html);
+      const dom = new JSDOM(this._wrapHtmlForParsing(html));
       const document = dom.window.document;
       const textContent = document.body.textContent.toLowerCase();
       
@@ -433,13 +641,84 @@ export class CSVGeneratorService {
    */
   _cleanContentForCSV(html) {
     // The processor should have already cleaned the HTML completely
-    // CSV generator should only handle CSV formatting, not HTML cleaning
+    // CSV generator handles final cleanup: tags, imgnone, etc.
     if (!html || html.trim() === '') {
       return '';
     }
     
-    // Return the HTML as-is since processor should have handled all cleaning
-    return html.trim();
+    try {
+      const dom = new JSDOM(html);
+      const document = dom.window.document;
+      const body = document.body;
+      
+      if (!body) {
+        return html.trim();
+      }
+      
+      // Remove tag sections (e.g., "Tags<span>:</span> <a href=...")
+      // Look for elements containing tag links with rel="tag" or href containing "/tag"
+      const allElements = Array.from(body.querySelectorAll('*'));
+      const elementsToRemove = [];
+      
+      allElements.forEach(element => {
+        const textContent = element.textContent?.trim() || '';
+        const innerHTML = element.innerHTML || '';
+        
+        // Check if element contains tag links
+        const tagLinks = element.querySelectorAll('a[rel*="tag"], a[href*="/tag"], a[href*="tag"]');
+        
+        if (tagLinks.length > 0) {
+          // Check if text starts with "Tag" or "Tags" (case insensitive)
+          const startsWithTag = /^Tags?\s*[:：]?\s*/i.test(textContent) || 
+                                /Tags?\s*<span[^>]*>[:：]<\/span>\s*/i.test(innerHTML);
+          
+          // Also check if innerHTML contains "Tags" followed by tag links
+          const hasTagPattern = /Tags?\s*[:：]?\s*<a[^>]*rel=["']tag/i.test(innerHTML) ||
+                                /Tags?\s*<span[^>]*>[:：]<\/span>\s*<a[^>]*rel=["']tag/i.test(innerHTML);
+          
+          // Remove if it's clearly a tag section
+          if (startsWithTag || hasTagPattern) {
+            elementsToRemove.push(element);
+          }
+        }
+      });
+      
+      // Remove tag elements
+      elementsToRemove.forEach(element => {
+        try {
+          if (element.parentNode) {
+            element.remove();
+          }
+        } catch (error) {
+          console.warn(`   ⚠️  Could not remove tag element: ${error.message}`);
+        }
+      });
+      
+      // Remove imgnone references and malformed tags
+      const images = body.querySelectorAll('img');
+      images.forEach(img => {
+        const attrs = [img.getAttribute('src'), img.getAttribute('class'), img.getAttribute('id')]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        
+        if (attrs.includes('imgnone')) {
+          try {
+            if (img.parentNode) img.remove();
+          } catch (error) {
+            console.warn(`   ⚠️  Could not remove imgnone image: ${error.message}`);
+          }
+        }
+      });
+      
+      // Clean HTML string: remove malformed tags and imgnone
+      return this._removeMalformedTags(body.innerHTML).trim();
+      
+    } catch (error) {
+      console.warn(`Error cleaning content for CSV: ${error.message}`);
+      // Fallback: remove malformed tags and imgnone from HTML string
+      return this._removeMalformedTags(html).trim();
+    }
   }
 
 
@@ -493,7 +772,8 @@ export class CSVGeneratorService {
       // This must happen before sanitization removes the custom classes
       const contentType = this._detectContentType(originalHtml, filename, contentTypeMappings, customSelectors);
       
-      // Extract title from original HTML
+      // Extract title from original scraped HTML (H1 is the primary source)
+      // The H1 tag from output/scraped-content/ is used as the post/page title
       const title = this._extractTitle(originalHtml, filename);
       
       // Generate slug

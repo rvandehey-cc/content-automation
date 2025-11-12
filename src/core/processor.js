@@ -650,6 +650,7 @@ export class ContentProcessorService {
       // Helper function to convert plain class names to CSS selectors
       const normalizeSelector = (selector) => {
         if (!selector) return selector;
+        selector = selector.trim();
         
         // If it doesn't start with . # [ or contain spaces/special chars, treat as class name
         if (!/^[.#\[]/.test(selector) && !/[\s>+~\[]/.test(selector)) {
@@ -658,45 +659,82 @@ export class ContentProcessorService {
         return selector;
       };
       
+      // Split comma-separated selectors
+      const selectors = postClassOrSelector.split(',').map(s => s.trim()).filter(s => s);
+      
       // Parse HTML to check for the actual CSS selector
       try {
         const { JSDOM } = require('jsdom');
         const dom = new JSDOM(html);
         const document = dom.window.document;
         
-        const postSelector = normalizeSelector(postClassOrSelector);
+        // Check each selector - if ANY match, it's a post
+        for (const selectorStr of selectors) {
+          const postSelector = normalizeSelector(selectorStr);
+          const elements = document.querySelectorAll(postSelector);
+          
+          if (elements && elements.length > 0) {
+            // Post selector found - this is definitively a post
+            return {
+              type: 'post',
+              confidence: 95,
+              reason: `Custom post selector found: ${selectorStr} (${elements.length} elements)`
+            };
+          }
+        }
         
-        // Check if selector exists in the document
-        const elements = document.querySelectorAll(postSelector);
-        if (elements && elements.length > 0) {
-          // Post selector found - this is definitively a post
+        // If none of the selectors matched, try text matching as fallback
+        let foundInText = false;
+        let foundSelector = '';
+        for (const selectorStr of selectors) {
+          const normalized = normalizeSelector(selectorStr);
+          // Remove leading . for text matching
+          const textToMatch = normalized.startsWith('.') ? normalized.substring(1) : normalized;
+          if (htmlLower.includes(textToMatch.toLowerCase())) {
+            foundInText = true;
+            foundSelector = selectorStr;
+            break;
+          }
+        }
+        
+        if (foundInText) {
           return {
             type: 'post',
-            confidence: 95,
-            reason: `Custom post class found: ${postClassOrSelector} (${elements.length} elements)`
+            confidence: 85,
+            reason: `Custom post selector found (text match): ${foundSelector}`
           };
         } else {
-          // Post selector not found - this is definitively a page
+          // None of the post selectors found - this is definitively a page
           return {
             type: 'page',
             confidence: 90,
-            reason: `Post class '${postClassOrSelector}' not found, classified as page`
+            reason: `Post selectors '${postClassOrSelector}' not found, classified as page`
           };
         }
       } catch (error) {
         // Fallback to simple text matching if DOM parsing fails
-        if (htmlLower.includes(postClassOrSelector.toLowerCase())) {
+        let foundInText = false;
+        let foundSelector = '';
+        for (const selectorStr of selectors) {
+          if (htmlLower.includes(selectorStr.toLowerCase())) {
+            foundInText = true;
+            foundSelector = selectorStr;
+            break;
+          }
+        }
+        
+        if (foundInText) {
           return {
             type: 'post',
             confidence: 85,
-            reason: `Custom post class found (text match): ${postClassOrSelector}`
+            reason: `Custom post selector found (text match): ${foundSelector}`
           };
         } else {
           // If text matching also fails, it's a page
           return {
             type: 'page',
             confidence: 85,
-            reason: `Post class '${postClassOrSelector}' not found (text match failed), classified as page`
+            reason: `Post selectors '${postClassOrSelector}' not found (text match failed), classified as page`
           };
         }
       }
@@ -709,6 +747,7 @@ export class ContentProcessorService {
       // Helper function to convert plain class names to CSS selectors
       const normalizeSelector = (selector) => {
         if (!selector) return selector;
+        selector = selector.trim();
         
         // If it doesn't start with . # [ or contain spaces/special chars, treat as class name
         if (!/^[.#\[]/.test(selector) && !/[\s>+~\[]/.test(selector)) {
@@ -717,27 +756,91 @@ export class ContentProcessorService {
         return selector;
       };
       
+      // Split comma-separated selectors
+      const selectors = pageClassOrSelector.split(',').map(s => s.trim()).filter(s => s);
+      
       try {
         const { JSDOM } = require('jsdom');
         const dom = new JSDOM(html);
         const document = dom.window.document;
         
-        const pageSelector = normalizeSelector(pageClassOrSelector);
-        
-        const elements = document.querySelectorAll(pageSelector);
-        if (elements && elements.length > 0) {
-          return {
-            type: 'page',
-            confidence: 95,
-            reason: `Custom page class found: ${pageClassOrSelector} (${elements.length} elements)`
-          };
+        // Check each selector - if ANY match, it's a page
+        for (const selectorStr of selectors) {
+          const pageSelector = normalizeSelector(selectorStr);
+          const elements = document.querySelectorAll(pageSelector);
+          
+          if (elements && elements.length > 0) {
+            return {
+              type: 'page',
+              confidence: 95,
+              reason: `Custom page selector found: ${selectorStr} (${elements.length} elements)`
+            };
+          }
         }
-      } catch (error) {
-        if (htmlLower.includes(pageClassOrSelector.toLowerCase())) {
+        
+        // If none matched, try text matching as fallback
+        let foundInText = false;
+        let foundSelector = '';
+        for (const selectorStr of selectors) {
+          const normalized = normalizeSelector(selectorStr);
+          const textToMatch = normalized.startsWith('.') ? normalized.substring(1) : normalized;
+          if (htmlLower.includes(textToMatch.toLowerCase())) {
+            foundInText = true;
+            foundSelector = selectorStr;
+            break;
+          }
+        }
+        
+        if (foundInText) {
           return {
             type: 'page',
             confidence: 85,
-            reason: `Custom page class found (text match): ${pageClassOrSelector}`
+            reason: `Custom page selector found (text match): ${foundSelector}`
+          };
+        }
+      } catch (error) {
+        // Fallback to simple text matching if DOM parsing fails
+        let foundInText = false;
+        let foundSelector = '';
+        for (const selectorStr of selectors) {
+          if (htmlLower.includes(selectorStr.toLowerCase())) {
+            foundInText = true;
+            foundSelector = selectorStr;
+            break;
+          }
+        }
+        
+        if (foundInText) {
+          return {
+            type: 'page',
+            confidence: 85,
+            reason: `Custom page selector found (text match): ${foundSelector}`
+          };
+        }
+      }
+    }
+    
+    // HIGH PRIORITY: Check for <article> tag - definitive post indicator
+    if (htmlLower.includes('<article') || htmlLower.includes('<article>')) {
+      try {
+        const { JSDOM } = require('jsdom');
+        const dom = new JSDOM(html);
+        const document = dom.window.document;
+        const articleElements = document.querySelectorAll('article');
+        if (articleElements && articleElements.length > 0) {
+          return {
+            type: 'post',
+            confidence: 95,
+            reason: `Found <article> tag (${articleElements.length} elements) - definitive post indicator`
+          };
+        }
+      } catch (error) {
+        // Fallback to simple text matching if DOM parsing fails
+        if (htmlLower.includes('<article')) {
+          return {
+            type: 'post',
+            confidence: 90,
+            reason: 'Found <article> tag (text match) - definitive post indicator'
           };
         }
       }
@@ -803,9 +906,11 @@ export class ContentProcessorService {
       postScore += 15;
       reasons.push('Contains model year content');
     }
-    if (htmlLower.includes('article') || htmlLower.includes('<article')) {
+    // Note: <article> tag check is now handled above as a definitive indicator
+    // This check is for other article-related content
+    if (htmlLower.includes('article') && !htmlLower.includes('<article')) {
       postScore += 10;
-      reasons.push('Contains article structure');
+      reasons.push('Contains article-related content');
     }
     
     // Content marketing/tip articles are posts 
@@ -2178,7 +2283,19 @@ export class ContentProcessorService {
       const cleanedBody = this._aggressiveCleanup(body);
       
       // Get final HTML
-      const cleanHtml = cleanedBody.innerHTML;
+      let cleanHtml = cleanedBody.innerHTML;
+      
+      // Remove malformed tags like <imgnone'"> or </imgnone'">
+      cleanHtml = cleanHtml.replace(/<imgnone[^>]*>/gi, '');
+      cleanHtml = cleanHtml.replace(/<\/imgnone[^>]*>/gi, '');
+      cleanHtml = cleanHtml.replace(/<[^>]*imgnone[^>]*>/gi, '');
+      
+      // Remove any malformed tags with quotes/attributes issues (e.g., <tag'"> or </tag'">)
+      cleanHtml = cleanHtml.replace(/<[^<>\s]+'"[^>]*>/gi, '');
+      cleanHtml = cleanHtml.replace(/<\/[^<>\s]+'"[^>]*>/gi, '');
+      
+      // Remove any remaining imgnone text
+      cleanHtml = cleanHtml.replace(/imgnone/gi, '');
       
       // Log Bootstrap class preservation summary
       const classMatches = cleanHtml.match(/class="[^"]+"/g) || [];
