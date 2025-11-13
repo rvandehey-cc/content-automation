@@ -22,6 +22,19 @@ This system automates the entire process of extracting content from websites and
 
 ## 🚀 Quick Start (For Content Developers)
 
+### Pre-Install Checks
+
+```bash
+# Check node version 18+ required
+node -v
+
+# If version below 18 is found update to newest
+nvm install 24
+
+# Switch to Node 24 
+nvm use 24
+```
+
 ### 1. Installation
 
 ```bash
@@ -38,8 +51,10 @@ npm run install-browsers
 
 ### 2. Basic Usage
 
+**It is recommended to test one post/page before full run to see if additional elements need to be identified in exclusion rules**
+
 1. **Add URLs to scrape**: Edit `data/urls.txt` and add one URL per line
-2. **Run the automation**: `npm start`
+2. **Run the automation**: `npm run start`
 3. **Follow the prompts**: The system will guide you through:
    - Content type setup (post vs page identification)
    - Custom element selectors (optional - specify elements to remove during sanitization)
@@ -51,8 +66,8 @@ npm run install-browsers
 
 When prompted, provide class names to help identify posts vs pages:
 
-- **For Posts**: Enter a class name that appears only on blog posts (e.g., `post-navigation`)
-- **For Pages**: Enter a class name that appears only on static pages (e.g., `page-header`)
+- **For Posts**: Enter a class name that appears only on blog posts, comma seperated (e.g., `post-navigation, article-header, dateDiv`)
+- **For Pages**: Enter a class name that appears only on static pages, comma seperated  (e.g., `page-header`)
 
 **Example**: If you see `<div class="post-navigation">` on blog posts, just enter `post-navigation`
 **Note**: This will only work for content within the body of the page, not the header or footer.
@@ -63,7 +78,8 @@ When prompted, provide class names to help identify posts vs pages:
 
 During the sanitization step, you'll be prompted to specify CSS selectors for elements you want to remove or ignore:
 
-**When prompted**: After confirming HTML sanitization, you can enter custom CSS selectors
+**When prompted**: After confirming HTML sanitization, you can enter custom CSS selectors, many are excluded by default
+
 **Examples of selectors**:
 - `.advertisement` - Remove all elements with the "advertisement" class
 - `#social-share` - Remove element with ID "social-share"
