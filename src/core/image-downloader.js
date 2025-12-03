@@ -73,6 +73,34 @@ export class ImageDownloaderService {
       }
     }
     
+    // Check if image is in excluded container classes (check element and all ancestors)
+    if (element) {
+      const excludedContainerClasses = [
+        'dataone_load',
+        'vdp_dealer_location_container',
+        'vehicle_crash_test_stars',
+        'testimonials_wrap',
+        'vehicle_award_wrap_container'
+      ];
+      
+      let current = element;
+      while (current && current.tagName) {
+        const className = (current.getAttribute('class') || '').toLowerCase();
+        
+        // Check if current element has any of the excluded classes
+        if (excludedContainerClasses.some(excludedClass => 
+          className.includes(excludedClass.toLowerCase())
+        )) {
+          return { 
+            shouldFilter: true, 
+            reason: `Image found in excluded container class: "${current.getAttribute('class')}"` 
+          };
+        }
+        
+        current = current.parentElement;
+      }
+    }
+    
     // Check parent element context if available
     if (element && element.parentElement) {
       const parentClass = element.parentElement.className || '';

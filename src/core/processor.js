@@ -165,10 +165,13 @@ export class ContentProcessorService {
     
     let linksProcessed = {
       finance: 0,
+      trade: 0,
       newVehicles: 0,
       usedVehicles: 0,
       certified: 0,
       contact: 0,
+      aboutUs: 0,
+      incentives: 0,
       sitemap: 0,
       service: 0,
       parts: 0,
@@ -198,11 +201,23 @@ export class ContentProcessorService {
         newHref = '/finance/apply-for-financing/';
         linksProcessed.finance = (linksProcessed.finance || 0) + 1;
         console.log(`   💰 Finance/Apply link: ${href} → ${newHref}`);
-      } else if (hrefLower.includes('directions') || hrefLower.includes('contact')) {
+      } else if (hrefLower.includes('trade') || hrefLower.includes('trade-')) {
+        newHref = '/value-your-trade/';
+        linksProcessed.trade++;
+        console.log(`   🔄 Trade link: ${href} → ${newHref}`);
+      } else if (hrefLower.includes('directions') || hrefLower.includes('contact') || hrefLower.includes('hours')) {
         newHref = '/contact-us/';
         linksProcessed.contact++;
-        console.log(`   📞 Contact/Directions link: ${href} → ${newHref}`);
-      } else if (hrefLower.includes('/new-') || hrefLower.includes('new-inventory') || hrefLower.includes('search/new') || hrefLower.includes('new')) {
+        console.log(`   📞 Contact/Directions/Hours link: ${href} → ${newHref}`);
+      } else if (hrefLower.includes('about-us') || hrefLower.includes('aboutus') || hrefLower.match(/\/about\/?$/)) {
+        newHref = '/about-us/';
+        linksProcessed.aboutUs++;
+        console.log(`   ℹ️  About Us link: ${href} → ${newHref}`);
+      } else if (hrefLower.includes('incentives') || hrefLower.includes('/incentives')) {
+        newHref = '/offers-and-incentives/';
+        linksProcessed.incentives++;
+        console.log(`   🎁 Incentives link: ${href} → ${newHref}`);
+      } else if (hrefLower.includes('/new-') || hrefLower.includes('new-inventory') || hrefLower.includes('search/') || hrefLower.includes('new')) {
         newHref = '/new-vehicles/';
         linksProcessed.newVehicles++;
         console.log(`   🚗 New vehicles link: ${href} → ${newHref}`);
@@ -271,7 +286,10 @@ export class ContentProcessorService {
     // Show summary of link processing
     console.log(`   📊 Link processing summary:`);
     console.log(`      💰 Finance: ${linksProcessed.finance}`);
+    console.log(`      🔄 Trade: ${linksProcessed.trade}`);
     console.log(`      📞 Contact/Directions: ${linksProcessed.contact}`);
+    console.log(`      ℹ️  About Us: ${linksProcessed.aboutUs}`);
+    console.log(`      🎁 Incentives: ${linksProcessed.incentives}`);
     console.log(`      🚗 New vehicles: ${linksProcessed.newVehicles}`);
     console.log(`      🔧 Used vehicles: ${linksProcessed.usedVehicles}`);
     console.log(`      🏆 Certified: ${linksProcessed.certified}`);
