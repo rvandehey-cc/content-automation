@@ -205,10 +205,10 @@ export class ContentProcessorService {
         newHref = '/value-your-trade/';
         linksProcessed.trade++;
         console.log(`   🔄 Trade link: ${href} → ${newHref}`);
-      } else if (hrefLower.includes('directions') || hrefLower.includes('contact') || hrefLower.includes('hours')) {
+      } else if (hrefLower.includes('directions') || hrefLower.includes('contact') || hrefLower.includes('hours') || hrefLower.includes('test drive') || hrefLower.includes('testdrive')) {
         newHref = '/contact-us/';
         linksProcessed.contact++;
-        console.log(`   📞 Contact/Directions/Hours link: ${href} → ${newHref}`);
+        console.log(`   📞 Contact/Directions/Hours/Test Drive link: ${href} → ${newHref}`);
       } else if (hrefLower.includes('about-us') || hrefLower.includes('aboutus') || hrefLower.match(/\/about\/?$/)) {
         newHref = '/about-us/';
         linksProcessed.aboutUs++;
@@ -656,12 +656,50 @@ export class ContentProcessorService {
    * @returns {Object} Detection result with type, confidence, and reason
    */
   _detectContentType(html, filename) {
+    // HIGHEST PRIORITY: Check URL path - if /blog/ is in original URL, it's definitely a post
+    // Load URL mappings to check the original URL
+    try {
+      const dataConfig = config.get('data');
+      const urlMappingsPath = config.resolvePath(dataConfig.urlMappings);
+      const fs = require('fs-extra');
+      
+      if (fs.existsSync(urlMappingsPath)) {
+        const urlMappings = JSON.parse(fs.readFileSync(urlMappingsPath, 'utf-8'));
+        const filenameKey = filename.replace('.html', '');
+        
+        if (urlMappings && urlMappings[filenameKey]) {
+          const originalUrl = urlMappings[filenameKey].originalUrl || '';
+          const originalPath = urlMappings[filenameKey].originalPath || '';
+          
+          // Check for /blog/ in URL path
+          if (originalPath.includes('/blog/') || originalUrl.includes('/blog/')) {
+            return {
+              type: 'post',
+              confidence: 100,
+              reason: 'URL contains /blog/ path - definitive post indicator'
+            };
+          }
+
+          // Check for other common blog path indicators
+          if (originalPath.includes('/news/') || originalPath.includes('/article/') || originalPath.includes('/posts/')) {
+            return {
+              type: 'post',
+              confidence: 95,
+              reason: `URL contains blog path indicator: ${originalPath}`
+            };
+          }
+        }
+      }
+    } catch (error) {
+      // Silently continue to other detection methods if URL mapping fails
+    }
+
     const htmlLower = html.toLowerCase();
     let pageScore = 0;
     let postScore = 0;
     const reasons = [];
     
-    // HIGHEST PRIORITY: Check for custom post selector - this should be decisive
+    // HIGH PRIORITY: Check for custom post selector - this should be decisive
     if (this.config.customSelectors && this.config.customSelectors.post) {
       const postClassOrSelector = this.config.customSelectors.post;
       

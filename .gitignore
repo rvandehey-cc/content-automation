@@ -9,4 +9,9 @@ output/
 logs/
 *.log
 
+# Data directories (generated content)
+data/url-mappings.json
+data/content-type-mappings.json
+data/custom-selectors.json
+
 .DS_Store
