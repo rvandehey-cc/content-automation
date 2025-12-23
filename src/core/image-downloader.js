@@ -286,6 +286,67 @@ export class ImageDownloaderService {
         });
       });
       
+      // STEP 1.5: Extract images from malformed tags (e.g., <imgnone'"> from dealer sites)
+      // Some dealer websites have broken image tags that JSDOM can't parse properly
+      let malformedImagesFound = 0;
+      const malformedImageRegex = /<imgnone[^>]*\ssrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
+      let match;
+      
+      while ((match = malformedImageRegex.exec(html)) !== null) {
+        const imageUrl = match[1];
+        
+        if (!imageUrl) continue;
+        
+        // Convert relative URLs to absolute
+        let absoluteUrl = imageUrl;
+        if (imageUrl.startsWith('/')) {
+          if (baseDomain) {
+            absoluteUrl = `${baseDomain}${imageUrl}`;
+          } else {
+            continue;
+          }
+        }
+        
+        if (absoluteUrl.startsWith('http://') || absoluteUrl.startsWith('https://')) {
+          // Normalize URL to check for duplicates
+          const normalizedUrl = this._normalizeImageUrl(absoluteUrl);
+          
+          // Skip if we've already seen this image
+          if (seenImages.has(normalizedUrl)) {
+            duplicatesSkipped++;
+            continue;
+          }
+          
+          const imageData = {
+            url: absoluteUrl,
+            sourceFile: sourceFilename,
+            imageIndex: malformedImagesFound,
+            alt: '',
+            title: '',
+            isMalformed: true
+          };
+          
+          // Check if this image should be filtered
+          const filterResult = this._shouldFilterImage(imageData);
+          if (filterResult.shouldFilter) {
+            filteredImages.push({
+              ...imageData,
+              filterReason: filterResult.reason
+            });
+            console.log(`   🚫 Filtered (malformed): ${absoluteUrl.substring(0, 60)}... - ${filterResult.reason}`);
+          } else {
+            images.push(imageData);
+            seenImages.add(normalizedUrl);
+            malformedImagesFound++;
+            console.log(`   ⚠️  Found malformed image tag: ${absoluteUrl.substring(0, 80)}...`);
+          }
+        }
+      }
+      
+      if (malformedImagesFound > 0) {
+        console.log(`   🔧 Recovered ${malformedImagesFound} images from malformed tags`);
+      }
+      
       // STEP 2: Extract CSS background images
       const bgElements = document.querySelectorAll('[style*="background-image"]');
       

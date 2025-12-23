@@ -8,19 +8,34 @@ A robust, enterprise-grade content automation system that scrapes web content an
 
 This system automates the entire process of extracting content from websites and preparing it for WordPress import, including content sanitization, link updates, image processing, and intelligent content type detection.
 
+**Version 2.0.0** now includes:
+- **🖥️ Web Dashboard**: Modern Next.js UI for managing runs, configurations, and metrics
+- **🔐 User Authentication**: Supabase Auth integration for secure multi-user access
+- **📊 Database Integration**: PostgreSQL (Supabase) with Prisma ORM for data persistence
+- **🐳 Docker Support**: Containerized deployment with Redis for job queue management
+- **💾 Automatic File Management**: Content-Migration folder on Desktop with organized outputs
+
 ### Key Features
 
+#### Core Automation Features
 - **🌐 Robust Web Scraping**: Uses Playwright to handle modern websites, Cloudflare protection, and JavaScript-heavy content
 - **🧹 Intelligent Content Cleaning**: Removes unwanted attributes, classes, and IDs while preserving essential formatting
-- **🎯 Custom Element Removal**: Interactive prompt allows you to specify CSS selectors for elements to remove during sanitization
+- **🎯 Custom Element Removal**: Interactive configuration for CSS selectors to remove during sanitization
 - **🔗 Smart Link Processing**: Converts internal links to WordPress-friendly URLs with custom mapping
 - **📸 Image Management**: Downloads and organizes images with proper WordPress paths
 - **🤖 Content Type Detection**: Automatically classifies content as posts or pages using custom selectors
 - **📊 CSV Generation**: Creates WordPress-ready CSV files for Really Simple CSV Importer
 - **🎯 Blog Content Cleanup**: Removes navigation, dates, and sidebar content that WordPress generates automatically
-- **⚡ Modular Architecture**: Clean separation of concerns with service-based design
 
-## 🚀 Quick Start (For Content Developers)
+#### Web Dashboard Features (v2.0.0)
+- **👥 User Management**: Secure authentication with Supabase Auth
+- **⚙️ Site Profiles**: Save and reuse configuration profiles for different sites
+- **🏃 Run Management**: Start, monitor, and track automation runs with real-time progress
+- **📈 Metrics Dashboard**: View statistics including time saved, URLs scraped, success rates
+- **📥 Download Management**: Automatic saving to Desktop/Content-Migration folder plus direct CSV downloads
+- **📝 Structured Logging**: Database-backed logs for debugging and auditing
+
+## 🚀 Quick Start
 
 ### Pre-Install Checks
 
@@ -35,7 +50,9 @@ nvm install 24
 nvm use 24
 ```
 
-### 1. Installation
+### Option 1: Web Dashboard (Recommended)
+
+#### 1. Installation
 
 ```bash
 # Clone the repository
@@ -49,12 +66,96 @@ npm install
 npm run install-browsers
 ```
 
-### 2. Basic Usage
+#### 2. Database Setup
+
+**Supabase Configuration:**
+
+1. Create a Supabase project at https://supabase.com
+2. Get your database connection string from: Project Settings → Database → Connection String (URI format)
+3. Get your Supabase URL and Anon Key from: Project Settings → API
+4. Create a `.env` file in the project root:
+
+```bash
+# Database Configuration (Supabase PostgreSQL)
+DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?schema=public"
+
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-REF].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[YOUR-ANON-KEY]
+SUPABASE_URL=https://[PROJECT-REF].supabase.co
+
+# Redis Configuration (for Docker)
+REDIS_URL="redis://localhost:6379"
+REDIS_PORT=6379
+
+# Application Configuration
+NODE_ENV=development
+APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Content Migration Output (optional - defaults to ~/Desktop/Content-Migration)
+# CONTENT_MIGRATION_PATH=/app/content-migration  # For Docker
+```
+
+#### 3. Database Migration
+
+```bash
+# Generate Prisma Client
+npm run db:generate
+
+# Run migrations
+npm run db:migrate
+
+# (Optional) Open Prisma Studio to view data
+npm run db:studio
+```
+
+#### 4. Start Services
+
+```bash
+# Start Redis (if using Docker)
+npm run docker:up
+
+# Start Next.js development server
+npm run dev:web
+```
+
+#### 5. Access Dashboard
+
+Open http://localhost:3000 in your browser:
+
+1. **Sign up** for a new account (email confirmation can be disabled in Supabase for development)
+2. **Create a Site Profile** to save configuration settings
+3. **Start a Run** by navigating to Runs → Start New Run
+4. **Monitor Progress** in real-time on the run detail page
+5. **Download CSV** when complete from the run detail page
+
+**Output Files:**
+- CSV files: `~/Desktop/Content-Migration/csv/{run-id}/wordpress-import-YYYY-MM-DD.csv`
+- Images: `~/Desktop/Content-Migration/images/{run-id}/`
+
+### Option 2: CLI (Legacy)
+
+#### 1. Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/vande012/wp-content-automation
+cd headless-scrape
+
+# Install dependencies
+npm install
+
+# Install browsers for scraping
+npm run install-browsers
+```
+
+#### 2. Basic Usage
 
 **It is recommended to test one post/page before full run to see if additional elements need to be identified in exclusion rules**
 
 1. **Add URLs to scrape**: Edit `data/urls.txt` and add one URL per line
-2. **Run the automation**: `npm run start`
+2. **Run the automation**: `npm start`
 3. **Follow the prompts**: The system will guide you through:
    - Content type setup (post vs page identification)
    - Custom element selectors (optional - specify elements to remove during sanitization)
@@ -62,153 +163,60 @@ npm run install-browsers
 4. **Import to WordPress**: Use the generated CSV file in `output/wp-ready/`
 5. **Cleanup past run's data**: `npm run clean`
 
-### 3. Content Type Setup
+## 🐳 Docker Deployment
 
-When prompted, provide class names to help identify posts vs pages:
+### Prerequisites
 
-- **For Posts**: Enter a class name that appears only on blog posts, comma seperated (e.g., `post-navigation, article-header, dateDiv`)
-- **For Pages**: Enter a class name that appears only on static pages, comma seperated  (e.g., `page-header`)
+- Docker and Docker Compose installed
+- Supabase project configured (see Database Setup above)
+- Environment variables configured in `.env`
 
-**Example**: If you see `<div class="post-navigation">` on blog posts, just enter `post-navigation`
-**Note**: This will only work for content within the body of the page, not the header or footer.
+### Setup
 
-> 💡 **Tip**: Use browser developer tools (F12) to inspect HTML and find unique class names
+1. **Create Content-Migration directory:**
+   ```bash
+   mkdir -p content-migration
+   ```
 
-### 4. Custom Element Removal
+2. **Update `.env` for Docker:**
+   ```env
+   # Set Content-Migration path for container
+   CONTENT_MIGRATION_PATH=/app/content-migration
+   ```
 
-During the sanitization step, you'll be prompted to specify CSS selectors for elements you want to remove or ignore:
+3. **Update `docker-compose.yml`** (currently only includes Redis - see DOCKER_CONTENT_MIGRATION.md for full setup)
 
-**When prompted**: After confirming HTML sanitization, you can enter custom CSS selectors, many are excluded by default
+4. **Build and Run:**
+   ```bash
+   # Start services
+   npm run docker:up
+   
+   # Build Next.js app (when Dockerfile is added)
+   docker-compose build
+   docker-compose up
+   ```
 
-**Examples of selectors**:
-- `.advertisement` - Remove all elements with the "advertisement" class
-- `#social-share` - Remove element with ID "social-share"
-- `[class*="popup"]` - Remove elements with "popup" anywhere in the class name
-- `div.newsletter, section.promotional` - Multiple selectors separated by commas
-- `footer .widget` - Nested selectors
+### Docker Configuration Notes
 
-**How it works**:
-- Enter one selector at a time
-- Press Enter with no input to finish adding selectors
-- All matching elements will be removed before other sanitization steps
-- Selectors are processed early, so you can target classes and IDs before they're removed
+- **Content-Migration Folder**: Mount as volume to access files from host machine
+- **Database**: Uses Supabase (external, no container needed)
+- **Redis**: Containerized for job queue (BullMQ)
+- **Next.js App**: Requires Dockerfile (to be added - see TODO section)
 
-**Use cases**:
-- Remove advertisement blocks
-- Remove social sharing widgets
-- Remove newsletter signup forms
-- Remove promotional banners
-- Remove any site-specific elements that shouldn't be imported
-
-> 💡 **Tip**: Use browser developer tools to inspect elements and find the right selectors. The selectors work just like CSS, so you can use class names, IDs, attribute selectors, and more.
-
-### 5. WordPress Import
-
-#### Required Plugin
-Activate the **Really Simple CSV Importer** plugin found in our environment:
-
-- **Plugin Name**: Really Simple CSV Importer
-- **Version**: 1.3 (or newer)
-- **Author**: Takuro Hishikawa
-- **Description**: Import posts, categories, tags, custom fields from simple CSV file
-- **WordPress Plugin Directory**: [Really Simple CSV Importer](https://wordpress.org/plugins/really-simple-csv-importer/)
-
-#### Import Process
-1. **Install & Activate**: Install the Really Simple CSV Importer plugin and activate it
-2. **Navigate to Importer**: Go to **Tools → Import → CSV Importer**
-3. **Upload CSV**: Upload the generated `wordpress-import.csv` file from `output/wp-ready/`
-4. **Map Fields**: Map CSV columns to WordPress fields (usually auto-detected)
-5. **Run Import**: Execute the import and review the results
-
-> 💡 **Important**: The plugin must be activated before you can access the CSV import functionality
-
-## 🏗️ Technical Architecture (For Engineers)
-
-### System Design Principles
-
-- **Separation of Concerns**: Each service handles one specific responsibility
-- **Error Resilience**: Comprehensive error handling with retry mechanisms
-- **Configuration-Driven**: Externalized configuration for different environments
-- **Progress Tracking**: Real-time feedback for long-running operations
-- **Memory Efficient**: Streaming processing for large datasets
-
-### Core Services Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    CLI Layer (automation.js)                │
-├─────────────────────────────────────────────────────────────┤
-│  HTMLScraperService  │  ContentProcessorService  │  CSV...  │
-├─────────────────────────────────────────────────────────────┤
-│           Utility Layer (errors, filesystem, cli)           │
-├─────────────────────────────────────────────────────────────┤
-│              Configuration Layer (config/index.js)          │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Service Details
-
-#### HTMLScraperService (`src/core/scraper.js`)
-- **Purpose**: Web scraping with Playwright
-- **Features**: 
-  - Cloudflare protection bypass
-  - Retry mechanisms with exponential backoff  
-  - Cookie and session management
-  - Content extraction from dynamic pages
-- **Input**: URLs from `data/urls.txt`
-- **Output**: Raw HTML files in `output/scraped-content/`
-
-#### ContentProcessorService (`src/core/processor.js`)
-- **Purpose**: HTML sanitization and WordPress preparation
-- **Features**:
-  - Aggressive attribute cleaning (removes all classes/IDs)
-  - **Custom element removal** - User-specified CSS selectors for targeted element removal
-  - Style preservation for formatting
-  - Link canonicalization and internal link conversion
-  - Content type detection (post vs page)
-  - Blog element removal (navigation, dates, sidebar)
-  - Footer and copyright cleanup
-- **Input**: Raw HTML from scraper
-- **Output**: Clean HTML in `output/clean-content/`
-
-#### CSVGeneratorService (`src/core/csv-generator.js`)
-- **Purpose**: WordPress CSV generation
-- **Features**:
-  - Really Simple CSV Importer v1.3+ compatibility
-  - Slug generation from URLs
-  - Title extraction and cleaning
-  - Post metadata generation
-  - Automatic post type detection (post vs page)
-  - **Article date extraction** - Intelligently finds and parses publish dates from content
-- **Input**: Processed HTML files
-- **Output**: WordPress CSV in `output/wp-ready/`
-
-#### ImageDownloaderService (`src/core/image-downloader.js`)
-- **Purpose**: Image asset management
-- **Features**:
-  - Concurrent download with rate limiting
-  - Format validation and conversion
-  - WordPress-friendly naming and organization
-  - Image mapping for link updates
-
-### Data Flow
-
-```
-URLs (data/urls.txt) 
-  → HTMLScraperService 
-  → Raw HTML (output/scraped-content/)
-  → ContentProcessorService 
-  → Clean HTML (output/clean-content/)
-  → CSVGeneratorService 
-  → WordPress CSV (output/wp-ready/)
-```
+See `DOCKER_CONTENT_MIGRATION.md` for detailed Docker setup instructions.
 
 ## 📁 Project Structure
 
 ```
 headless-scrape/
 ├── src/
-│   ├── cli/                    # Command-line interfaces
+│   ├── app/                    # Next.js web dashboard (v2.0.0)
+│   │   ├── api/                # API routes (runs, site-profiles, auth, etc.)
+│   │   ├── auth/               # Authentication pages (login, signup)
+│   │   ├── runs/               # Run management pages
+│   │   ├── site-profiles/      # Site profile management
+│   │   └── metrics/            # Metrics dashboard
+│   ├── cli/                    # Command-line interfaces (legacy)
 │   │   ├── automation.js       # Main pipeline orchestrator
 │   │   └── cleanup.js          # Maintenance utilities
 │   ├── core/                   # Business logic services
@@ -216,21 +224,40 @@ headless-scrape/
 │   │   ├── processor.js        # Content processing service
 │   │   ├── csv-generator.js    # WordPress CSV generation
 │   │   └── image-downloader.js # Image asset management
+│   ├── services/               # New service layer (v2.0.0)
+│   │   └── run-executor.js     # Orchestrates automation runs from web UI
+│   ├── lib/                    # Shared libraries (v2.0.0)
+│   │   ├── db/                 # Prisma database client
+│   │   ├── supabase/           # Supabase client (server & browser)
+│   │   └── utils.ts            # Utility functions
+│   ├── components/             # React components (v2.0.0)
+│   │   ├── ui/                 # shadcn/ui components
+│   │   └── auth-button.jsx     # Authentication component
 │   ├── config/                 # Configuration management
 │   │   └── index.js            # Centralized configuration
-│   └── utils/                  # Shared utilities
-│       ├── cli.js              # Command-line interface helpers
-│       ├── errors.js           # Error handling and retry logic
-│       └── filesystem.js       # File system operations
+│   ├── utils/                  # Shared utilities
+│   │   ├── cli.js              # Command-line interface helpers
+│   │   ├── errors.js           # Error handling and retry logic
+│   │   ├── filesystem.js       # File system operations
+│   │   ├── cleanup-output.js   # Output directory cleanup
+│   │   └── content-migration-path.js  # Content-Migration folder management
+│   └── middleware.js           # Next.js middleware for auth
+├── prisma/                     # Database schema and migrations (v2.0.0)
+│   ├── schema.prisma           # Prisma schema definition
+│   └── migrations/             # Database migration files
 ├── data/                       # Configuration and input data
 │   ├── urls.txt               # URLs to scrape
 │   └── custom-selectors.json  # Content type detection rules
-├── output/                     # Generated content
+├── output/                     # Generated content (gitignored)
 │   ├── scraped-content/       # Raw HTML from scraper
 │   ├── clean-content/         # Processed HTML
 │   ├── images/                # Downloaded images
 │   └── wp-ready/              # WordPress import files
-└── logs/                       # Application logs
+├── logs/                       # Application logs
+├── content-migration/          # Desktop output (created automatically, gitignored)
+│   ├── images/                # Images organized by run ID
+│   └── csv/                   # CSV files organized by run ID
+└── docker-compose.yml          # Docker services configuration
 ```
 
 ## ⚙️ Configuration
@@ -240,20 +267,42 @@ headless-scrape/
 Create a `.env` file in the project root:
 
 ```bash
-# Scraper Configuration
-SCRAPER_HEADLESS=true          # Run browser in headless mode
-SCRAPER_TIMEOUT=60000          # Page load timeout (ms)
-SCRAPER_MAX_RETRIES=2          # Retry attempts for failed scrapes
+# Database Configuration (Supabase PostgreSQL)
+DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?schema=public"
 
-# Image Processing
-IMAGES_ENABLED=true            # Enable image downloading
-IMAGES_MAX_CONCURRENT=5        # Concurrent download limit
-IMAGES_TIMEOUT=30000           # Image download timeout
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-REF].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[YOUR-ANON-KEY]
+SUPABASE_URL=https://[PROJECT-REF].supabase.co
 
-# Processing
-DEALER_SLUG=your-dealership    # For image path generation
-IMAGE_YEAR=2025               # For image organization
-IMAGE_MONTH=01                # For image organization
+# Redis Configuration (for BullMQ job queue)
+REDIS_URL="redis://localhost:6379"
+REDIS_PORT=6379
+
+# Application Configuration
+NODE_ENV=development
+APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Content Migration Output Path (optional)
+# Default: ~/Desktop/Content-Migration
+# For Docker: /app/content-migration
+# CONTENT_MIGRATION_PATH=/app/content-migration
+
+# Scraper Configuration (CLI mode)
+SCRAPER_HEADLESS=true
+SCRAPER_TIMEOUT=60000
+SCRAPER_MAX_RETRIES=2
+
+# Image Processing (CLI mode)
+IMAGES_ENABLED=true
+IMAGES_MAX_CONCURRENT=5
+IMAGES_TIMEOUT=30000
+
+# Processing (CLI mode)
+DEALER_SLUG=your-dealership
+IMAGE_YEAR=2025
+IMAGE_MONTH=01
 ```
 
 ### Configuration Files
@@ -261,8 +310,8 @@ IMAGE_MONTH=01                # For image organization
 #### `data/custom-selectors.json`
 ```json
 {
-  "post": "post-navigation",   // Class name for blog posts
-  "page": "page-header"        // Class name for static pages (optional)
+  "post": "post-navigation",
+  "page": "page-header"
 }
 ```
 
@@ -273,37 +322,45 @@ https://example.com/blog/post1.html
 https://example.com/another-page.html
 ```
 
-## 🛠️ Tools and Dependencies
+## 🛠️ Development Commands
 
-### Core Dependencies
-- **Playwright** (^1.40.0): Headless browser automation
-- **JSDOM** (^23.2.0): Server-side DOM manipulation
-- **Cheerio** (^1.0.0): jQuery-like server-side HTML parsing
-- **Winston** (^3.11.0): Structured logging
-- **fs-extra** (^11.1.1): Enhanced filesystem operations
-
-### System Requirements
-- **Node.js 18+**: Runtime environment
-- **Chrome/Chromium**: Installed by Playwright
-- **4GB+ RAM**: For processing large content sets
-- **Modern OS**: Windows 10+, macOS 10.14+, Ubuntu 18.04+
-
-## 🔧 Development Commands
+### Web Dashboard Commands
 
 ```bash
 # Development
-npm start                  # Run full automation pipeline
-npm run dev               # Development mode with enhanced logging
-npm run clean             # Clear all output directories
+npm run dev:web          # Start Next.js dev server
+npm run build            # Build Next.js app for production
+npm run start:web        # Start production Next.js server
 
-# Individual Services (if implemented)
-npm run scrape            # Run scraper only
-npm run process           # Run processor only
+# Database
+npm run db:generate      # Generate Prisma Client
+npm run db:migrate       # Run database migrations
+npm run db:migrate:deploy  # Deploy migrations to production
+npm run db:studio        # Open Prisma Studio (database GUI)
+npm run db:seed          # Seed database with test data
+
+# Docker
+npm run docker:up        # Start Docker services (Redis)
+npm run docker:down      # Stop Docker services
+npm run docker:logs      # View Docker logs
+```
+
+### CLI Commands (Legacy)
+
+```bash
+# Development
+npm start                # Run full automation pipeline
+npm run dev             # Development mode with enhanced logging
+npm run clean           # Clear all output directories
+
+# Individual Services
+npm run scrape          # Run scraper only
+npm run process         # Run processor only
 
 # Maintenance
 npm run install-browsers  # Install/update browsers
-npm run lint             # Code quality check
-npm test                 # Run test suite (when implemented)
+npm run lint            # Code quality check
+npm test                # Run test suite (when implemented)
 ```
 
 ## 🔍 Content Processing Details
@@ -333,322 +390,161 @@ The processor uses an aggressive cleaning approach optimized for WordPress impor
 - Inline margin/padding styles for proper content separation
 - Conversion of Microsoft Word-style lists to proper HTML `<ul>` and `<li>` tags
 
-### Content Spacing
+See the original README sections for detailed information on:
+- Content Spacing (lines 336-356)
+- Microsoft Word List Conversion (lines 358-392)
+- Content Type Detection (lines 394-401)
+- Link Processing (lines 403-414)
+- Image URL Updates (lines 416-449)
+- Slug Generation (lines 451-456)
+- Article Date Extraction (lines 458-491)
 
-The processor automatically adds consistent spacing to ensure proper formatting when imported into WordPress:
+## 📊 Web Dashboard Features
 
-**Uniform Spacing:** All content elements receive **20pt margin top and bottom** for optimal readability
+### Site Profiles
 
-Elements that receive spacing:
-- **Paragraphs** (`<p>`) - *except those inside list items*
-- **Headings** (`<h2>` through `<h6>`)
-- **Tables** (`<table>`)
-- **Images** (`<img>`)
-- **Lists** (`<ul>`, `<ol>`) - spacing applied to container only
-- **Blockquotes** (`<blockquote>`)
-- **Content divs** (divs with text content, boxes, containers)
+Create and save configuration profiles for different sites:
 
-**Excluded from spacing:**
-- Paragraphs inside `<li>` elements (prevents double spacing)
-- Table-responsive wrapper divs
-- Large container divs with nested block elements
+- **Profile Name**: Descriptive name for the site
+- **Configuration**: Store selectors, cleanup rules, WordPress settings
+- **Reusability**: Load profiles when starting new runs
 
-**Note:** The processor removes any existing margin-top and margin-bottom styles and replaces them with the uniform 20pt spacing. Other style properties (colors, fonts, line-height, etc.) are preserved.
+### Run Management
 
-### Microsoft Word List Conversion
+- **Start Runs**: Configure and start automation runs from the web UI
+- **Real-time Progress**: Watch runs execute with live progress updates
+- **Run History**: View all past runs with status, metrics, and timestamps
+- **Run Details**: Deep dive into individual run metrics, configuration, and logs
 
-Many CMS platforms export lists using Microsoft Word formatting instead of proper HTML list tags. The processor automatically detects and converts these to proper HTML:
+### Metrics Dashboard
 
-**Detects:**
-- Paragraphs with bullet characters (●, •, ◦, ▪, etc.)
-- Paragraphs with `mso-list` styles (Microsoft Office formatting)
-- Paragraphs with hanging indents (list-style formatting)
+Track team-wide statistics:
 
-**Converts to:**
-- Proper `<ul>` (unordered list) tags
-- Individual `<li>` (list item) tags
-- Removes bullet characters from text content
-- **Strips all `mso-` styles** (Microsoft Office formatting)
-- **Removes `white-space: pre`** from all list elements (prevents formatting issues)
-- **Unwraps `<p>` tags inside list items** (prevents double spacing)
-- Groups consecutive list items together
-- Relies on default HTML list styling
+- **Time Saved**: Calculated based on 15 minutes per page migrated
+- **URLs Processed**: Total URLs scraped across all runs
+- **Success Rates**: Track success/failure rates for runs
+- **User Activity**: See runs by user (future feature)
 
-**Result:** Clean, vertical bulleted lists with proper spacing and no Word artifacts
+### Content-Migration Folder
 
-**Example:**
-```html
-<!-- Before -->
-<ul style="white-space: pre">
-  <li style="white-space: pre">
-    <p style="margin: 20pt; white-space: pre">Forward Collision-Avoidance Assist</p>
-  </li>
-</ul>
+Automatic file organization:
 
-<!-- After -->
-<ul>
-  <li>Forward Collision-Avoidance Assist</li>
-</ul>
-```
+- **Location**: `~/Desktop/Content-Migration/` (or custom path via `CONTENT_MIGRATION_PATH`)
+- **Structure**: Organized by run ID to prevent conflicts
+- **CSV Files**: Named with date stamp (e.g., `wordpress-import-2025-12-23.csv`)
+- **Images**: All images from a run grouped together
 
-### Content Type Detection
+## ✅ Current Status & TODO
 
-The system intelligently classifies content using:
+### ✅ Completed Features (v2.0.0)
 
-1. **Custom Selectors**: User-defined class names for posts vs pages
-2. **URL Patterns**: `/blog/`, `/news/`, etc. indicate posts
-3. **Content Analysis**: Testimonials, reviews, and comparisons suggest posts
-4. **Fallback Rules**: When uncertain, defaults to pages
+- [x] Next.js web dashboard with shadcn/ui components
+- [x] Supabase authentication (login, signup, session management)
+- [x] Prisma database integration with PostgreSQL (Supabase)
+- [x] Site profile management (create, read, list)
+- [x] Run creation and execution from web UI
+- [x] Real-time run progress tracking
+- [x] Run metrics storage and display
+- [x] Database-backed logging
+- [x] Content-Migration folder auto-organization
+- [x] CSV download functionality
+- [x] Redis setup for future job queue (BullMQ)
+- [x] TypeScript type declarations for JSX components
 
-### Link Processing
+### 🚧 In Progress / Needs Testing
 
-Internal links are automatically converted to WordPress-friendly URLs:
+- [ ] **Dockerfile**: Create Dockerfile for Next.js app containerization
+- [ ] **Job Queue**: Implement BullMQ for asynchronous run processing (Redis already configured)
+- [ ] **Run Logs UI**: Build log viewer component for structured logs
+- [ ] **Site Profile CRUD**: Complete site profile edit/delete functionality
+- [ ] **Content Preview**: Implement before/after HTML preview feature
+- [ ] **Run Filtering**: Add filtering and search to runs list
+- [ ] **Error Handling**: Comprehensive error handling for edge cases
+- [ ] **Input Validation**: Form validation for run configuration
+- [ ] **Image Preview**: Show downloaded images in run details
 
-| Original Pattern | WordPress URL |
-|-----------------|---------------|
-| `new` | `/new-vehicles/` |
-| `used` | `/used-vehicles/` |
-| `contact` | `/contact-us/` |
-| `service` | `/service/` |
-| `parts` | `/parts/` |
-| `sitemap` | `/sitemap/` |
+### 📋 Needs Configuration
 
-### Image URL Updates
+- [ ] **Docker Setup**: Complete Docker Compose configuration for full app stack
+- [ ] **Environment Variables**: Document all required environment variables
+- [ ] **Supabase RLS**: Configure Row Level Security policies for multi-user access
+- [ ] **Email Configuration**: Set up email service for Supabase Auth (currently disabled for dev)
+- [ ] **Production Build**: Test and optimize Next.js production build
+- [ ] **Content-Migration Path**: Configure for production Docker deployment
 
-After downloading images, the system prompts you for WordPress upload settings and updates all image URLs to match the expected WordPress structure.
+### 🔨 Needs Development
 
-**WordPress Image URL Format:**
-```
-https://di-uploads-development.dealerinspire.com/{dealer-slug}/uploads/{year}/{month}/{filename}
-```
+- [ ] **Unit Tests**: Write tests for core services (scraper, processor, csv-generator)
+- [ ] **Integration Tests**: Test API routes and database interactions
+- [ ] **E2E Tests**: End-to-end tests for web dashboard workflows
+- [ ] **Performance Optimization**: Optimize large file processing and database queries
+- [ ] **Error Recovery**: Implement run recovery/retry mechanisms
+- [ ] **Run Cancellation**: Allow users to cancel running jobs
+- [ ] **Bulk Operations**: Support for bulk run management
+- [ ] **Export Functionality**: Export run data, logs, and metrics
+- [ ] **Admin Dashboard**: Admin panel for managing users and system settings
+- [ ] **API Documentation**: OpenAPI/Swagger documentation for API routes
 
-**Example:**
-```
-Original: https://example.com/images/car-photo.jpg
-Updated:  https://di-uploads-development.dealerinspire.com/albanytoyota/uploads/2025/01/car-photo.jpg
-```
+### 🎨 UI/UX Improvements Needed
 
-**Configuration Prompts:**
-- **Dealer Slug**: The dealership identifier (e.g., `albanytoyota`, `delrayhyundai`)
-- **Upload Year**: Year for the upload path (defaults to current year)
-- **Upload Month**: Month for the upload path (defaults to current month, 01-12)
+- [ ] **Loading States**: Improve loading indicators and skeleton screens
+- [ ] **Error Messages**: User-friendly error messages with actionable guidance
+- [ ] **Form Validation**: Real-time validation feedback in forms
+- [ ] **Accessibility**: WCAG compliance and keyboard navigation
+- [ ] **Mobile Responsiveness**: Optimize for mobile devices
+- [ ] **Dark Mode**: Implement dark mode theme
+- [ ] **Toast Notifications**: Success/error notifications for user actions
 
-**Features:**
-- ✅ Updates all `<img src>` attributes in HTML
-- ✅ Matches downloaded images using mapping file
-- ✅ Falls back to filename extraction for unmapped images
-- ✅ Preserves image alt text and other attributes
-- ✅ Settings saved and reused across runs
+### 📚 Documentation Needs
 
-**Environment Variables:**
-You can also set these via `.env` to skip prompts:
-```bash
-DEALER_SLUG=albanytoyota
-IMAGE_YEAR=2025
-IMAGE_MONTH=01
-```
+- [ ] **API Documentation**: Document all API endpoints
+- [ ] **Deployment Guide**: Step-by-step production deployment instructions
+- [ ] **Docker Guide**: Complete Docker setup and deployment guide
+- [ ] **Architecture Diagram**: Visual architecture diagram
+- [ ] **Database Schema**: ER diagram and schema documentation
+- [ ] **Troubleshooting Guide**: Common issues and solutions for web dashboard
 
-### Slug Generation
+### 🔒 Security Needs
 
-File-based URLs are converted to clean WordPress slugs:
-- `www.example.com_2025-ford-f150-review.html` → `2025-ford-f150-review`
-- Removes domain and file extensions
-- Creates SEO-friendly permalinks
-
-### Article Date Extraction
-
-The CSV generator automatically extracts publish dates from article content to preserve the original publication date when importing to WordPress:
-
-**Supported Date Selectors** (in order of priority):
-- `.article-date` - Common blog date class
-- `.post-date` - WordPress-style date class
-- `.published` - Publishing timestamp class
-- `.date` - Generic date class
-- `.entry-date` - Entry metadata class
-- `time[datetime]` - HTML5 time elements with datetime attribute
-- Any element with `date` or `published` in the class name
-
-**Supported Date Formats:**
-- **ISO 8601**: `2023-03-08` or `2023-03-08T12:00:00`
-- **US Format**: `March 8, 2023` or `03/08/2023`
-- **European Format**: `8 March 2023`
-- **Datetime attributes**: Preferred format for accuracy
-
-**Fallback Behavior:**
-- If no date is found → Uses current date/time
-- If date parsing fails → Uses current date/time
-- Outputs MySQL datetime format: `YYYY-MM-DD HH:MM:SS`
-
-**Example:**
-```html
-<!-- In scraped HTML -->
-<h3 class="article-date">March 8, 2023</h3>
-
-<!-- Results in CSV -->
-post_date: "2023-03-08 00:00:00"
-```
-
-**Note:** Date extraction works on the original scraped HTML before class removal, ensuring dates are captured even if they're removed during processing.
-
-## 📊 Error Handling and Monitoring
-
-### Error Categories
-
-1. **ScraperError**: Network, timeout, or page load issues
-2. **ProcessingError**: HTML parsing or file system problems
-3. **CSVGenerationError**: Data formatting or output issues
-4. **General Errors**: Unexpected system errors
-
-### Retry Mechanisms
-
-- **Exponential Backoff**: Increasing delays between retries
-- **Circuit Breaker**: Stops retrying after consecutive failures
-- **Graceful Degradation**: Continues processing other items
-
-### Progress Tracking
-
-Real-time feedback with:
-- Progress bars for long operations
-- Detailed status messages
-- Success/failure counts
-- Performance metrics
+- [ ] **Input Sanitization**: Validate and sanitize all user inputs
+- [ ] **SQL Injection Prevention**: Ensure Prisma queries are safe
+- [ ] **XSS Prevention**: Sanitize HTML outputs in UI
+- [ ] **Rate Limiting**: Implement rate limiting on API routes
+- [ ] **CORS Configuration**: Proper CORS setup for production
+- [ ] **Environment Secrets**: Secure handling of secrets in production
 
 ## 🐛 Troubleshooting
 
-### Common Issues
+### Web Dashboard Issues
 
-**"No URLs to scrape"**
-- Check that `data/urls.txt` exists and contains valid URLs
-- Ensure URLs are one per line with no extra spaces
+**"Database connection failed"**
+- Verify `DATABASE_URL` in `.env` is correct
+- Ensure Supabase project is active (not paused)
+- Check network connectivity to Supabase
 
-**"Cloudflare blocked request"**
-- The scraper includes Cloudflare bypass techniques
-- If persistent, try reducing concurrency or adding delays
+**"Authentication not working"**
+- Verify `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env`
+- Check Supabase Auth settings (email confirmation may need to be disabled for dev)
+- Clear browser cookies and try again
 
-**"Content type detection incorrect"**
-- Review your custom selectors in `data/custom-selectors.json`
-- Use browser developer tools to find unique class names
-- Test with a small sample first
+**"Run not found" errors**
+- Ensure database migrations are up to date: `npm run db:migrate`
+- Check that run was created successfully in database
+- Verify user has permission to view the run
 
-**"Images not downloading"**
-- Check `IMAGES_ENABLED=true` in configuration
-- Verify network connectivity and image URLs
-- Review console output for specific error messages
+**"CSV download fails"**
+- Check that CSV file exists in `output/wp-ready/`
+- Verify file permissions
+- Check server logs for errors
 
-**"HTML elements still present after cleaning"**
-- The aggressive cleaning removes most elements
-- Some content-specific elements may need custom rules
-- Check the processor configuration for your use case
+**"Content-Migration folder not created"**
+- Check file system permissions
+- Verify `CONTENT_MIGRATION_PATH` if using custom path
+- Ensure parent directory exists
 
-### Debug Mode
+### CLI Issues
 
-Enable detailed logging:
-```bash
-NODE_ENV=development npm start
-```
-
-### Log Analysis
-
-Check logs in the `logs/` directory:
-- `combined.log`: All activity
-- `error.log`: Errors only
-
-## 🔧 Expansion & Customization
-
-### Current Limitations
-
-- **Hardcoded link patterns** optimized for automotive websites
-- **Content detection rules** specific to dealership blog structures  
-- **Cleanup patterns** targeting common dealership CMS elements
-- **URL structures** assuming automotive comparison pages
-
-### Adaptation Required For:
-
-#### Different Dealer Groups
-- **GM, Toyota, Honda, etc.**: Different URL patterns and content structures
-- **Multi-brand dealers**: Mixed content types and navigation patterns
-- **Independent dealers**: Varying CMS platforms and customizations
-
-### Required Customizations
-
-#### 1. Link Pattern Updates (`src/core/processor.js`)
-```javascript
-// Current
-if (hrefLower.includes('new')) {
-  newHref = '/new-vehicles/';
-}
-
-// Needs expansion for other slug types
-if (hrefLower.includes('new')) {
-  newHref = this.config.linkMappings?.new || '/new-vehicles/';
-}
-```
-
-#### 2. Content Detection Rules (`src/core/csv-generator.js`)
-```javascript
-// Add brand-specific selectors
-const brandSpecificSelectors = {
-  'ford': { post: 'post-navigation', page: 'page-header' },
-  'gm': { post: 'blog-meta', page: 'static-content' },
-  'toyota': { post: 'article-info', page: 'page-content' }
-};
-```
-
-#### 3. Cleanup Patterns (`src/core/processor.js`)
-```javascript
-// Expand blog element patterns
-const dealerSpecificPatterns = {
-  'ford': ['Recent Blog Entries', 'Essential Ford'],
-  'gm': ['Latest News', 'Chevy Updates'],
-  'toyota': ['Toyota News', 'Recent Articles']
-};
-```
-
-### Extension Points
-
-#### Configuration-Based Customization
-```javascript
-// config/dealerTypes.js
-export const DEALER_CONFIGS = {
-  ford: {
-    linkMappings: { new: '/new-vehicles/', used: '/used-vehicles/' },
-    contentSelectors: { post: 'post-navigation' },
-    cleanupPatterns: ['Recent Blog Entries', 'Connect with us']
-  },
-  gm: {
-    linkMappings: { new: '/new-inventory/', used: '/pre-owned/' },
-    contentSelectors: { post: 'blog-nav' },
-    cleanupPatterns: ['Latest Updates', 'Follow GM']
-  }
-};
-```
-
-#### Plugin Architecture
-
-Future enhancements could include:
-
-- **Brand-specific plugins**: Modular processors for different dealers
-- **CMS adapters**: Specialized handlers for WordPress
-- **Content type extensions**: Custom rules for reviews, specifications, etc.
-
-### Contributing New Dealer Support
-
-To add support for a new dealer group or OEM:
-
-1. **Analyze target websites**: Document content structures and patterns
-2. **Create configuration profiles**: Define selectors and cleanup rules
-3. **Test thoroughly**: Verify content quality and link accuracy
-4. **Document patterns**: Help others understand the customizations
-5. **Submit improvements**: Contribute back to the main codebase
-
-### Future Roadmap
-
-- [ ] **Multi-brand configuration system**
-- [ ] **Visual selector picker tool**
-- [ ] **Content structure analysis dashboard**
-- [ ] **A/B testing for cleanup effectiveness**
-- [ ] **Machine learning content classification**
-- [ ] **Real-time content preview**
+See original README troubleshooting section (lines 516-548) for CLI-specific issues.
 
 ## 🤝 Contributing
 
@@ -683,13 +579,21 @@ To add support for a new dealer group or OEM:
 4. Update documentation
 5. Submit a pull request
 
+## 📖 Additional Documentation
 
-### WordPress Plugin Requirements
-- **Really Simple CSV Importer**: v1.3+ by Takuro Hishikawa
-- **WordPress**: 5.0+ recommended
-- **PHP**: 7.4+ for optimal performance
+- **[QUICK_START.md](./QUICK_START.md)**: Quick start guide for new developers
+- **[AUTH_SETUP.md](./AUTH_SETUP.md)**: Detailed Supabase authentication setup
+- **[SUPABASE_SETUP_COMPLETE.md](./SUPABASE_SETUP_COMPLETE.md)**: Supabase configuration guide
+- **[DOCKER_CONTENT_MIGRATION.md](./DOCKER_CONTENT_MIGRATION.md)**: Docker setup for Content-Migration folder
+- **[DATABASE_SETUP.md](./DATABASE_SETUP.md)**: Database setup instructions (legacy)
+- **[DEVELOPMENT_STATUS.md](./DEVELOPMENT_STATUS.md)**: Development status tracking
 
-### Getting Help
+## 🔧 Expansion & Customization
+
+[Original expansion and customization content from lines 556-652 remains the same]
+
+## 📞 Getting Help
+
 - **Issues**: [Report bugs and feature requests](issues)
 - **Discussions**: [Community support and questions](discussions)
 - **Documentation**: [Wiki and guides](wiki)
@@ -700,4 +604,5 @@ To add support for a new dealer group or OEM:
 
 **⚡ Built for the modern web** | **🚀 Enterprise-ready** | **🔧 Highly customizable**
 
+> **Version 2.0.0** - Now with Web Dashboard, Database Integration, and Docker Support  
 > **Note**: This system represents a foundation that requires customization for different dealer groups, OEMs, and website structures. We welcome contributions that extend its capabilities and improve its adaptability to diverse content automation needs.

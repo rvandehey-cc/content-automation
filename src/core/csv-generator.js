@@ -474,16 +474,42 @@ export class CSVGeneratorService {
    * @param {string} filename - Filename for context
    * @param {Object} contentTypeMappings - Manual content type mappings
    * @param {Object} customSelectors - User-defined CSS selectors for detection
+   * @param {Object} urlMappings - URL mappings for URL-based detection
    * @returns {Object} Detection result with type, confidence, and reason
    */
-  _detectContentType(html, filename, contentTypeMappings, customSelectors = null) {
-    // Check manual mappings first
+  _detectContentType(html, filename, contentTypeMappings, customSelectors = null, urlMappings = {}) {
+    // PRIORITY 1: Check manual mappings first
     if (contentTypeMappings && contentTypeMappings[filename]) {
       return {
         type: contentTypeMappings[filename],
         confidence: 100,
         reason: 'Manual mapping'
       };
+    }
+
+    // PRIORITY 2: Check URL path - if /blog/ is in URL, it's definitely a post
+    const filenameKey = filename.replace('.html', '');
+    if (urlMappings && urlMappings[filenameKey]) {
+      const originalUrl = urlMappings[filenameKey].originalUrl || '';
+      const originalPath = urlMappings[filenameKey].originalPath || '';
+      
+      // Check for /blog/ in URL path
+      if (originalPath.includes('/blog/') || originalUrl.includes('/blog/')) {
+        return {
+          type: 'post',
+          confidence: 100,
+          reason: 'URL contains /blog/ path - definitive post indicator'
+        };
+      }
+
+      // Check for other common blog path indicators
+      if (originalPath.includes('/news/') || originalPath.includes('/article/') || originalPath.includes('/posts/')) {
+        return {
+          type: 'post',
+          confidence: 95,
+          reason: `URL contains blog path indicator: ${originalPath}`
+        };
+      }
     }
 
     // Pre-compute lowercase HTML for multiple checks
@@ -758,9 +784,10 @@ export class CSVGeneratorService {
    * @param {string} filename - HTML filename
    * @param {Object} contentTypeMappings - Content type mappings
    * @param {Object} customSelectors - Custom CSS selectors
+   * @param {Object} urlMappings - URL mappings for URL-based detection
    * @returns {Promise<Object>} Processed item data
    */
-  async _processHtmlFile(filename, contentTypeMappings, customSelectors) {
+  async _processHtmlFile(filename, contentTypeMappings, customSelectors, urlMappings = {}) {
     const scrapedPath = path.join(config.resolvePath('output/scraped-content'), filename);
     const cleanPath = path.join(config.resolvePath('output/clean-content'), filename);
     
@@ -770,7 +797,7 @@ export class CSVGeneratorService {
       
       // IMPORTANT: Detect content type using original scraped HTML
       // This must happen before sanitization removes the custom classes
-      const contentType = this._detectContentType(originalHtml, filename, contentTypeMappings, customSelectors);
+      const contentType = this._detectContentType(originalHtml, filename, contentTypeMappings, customSelectors, urlMappings);
       
       // Extract title from original scraped HTML (H1 is the primary source)
       // The H1 tag from output/scraped-content/ is used as the post/page title
@@ -892,12 +919,24 @@ export class CSVGeneratorService {
         console.log('📋 No custom selectors found - using automatic content detection');
       }
 
+      // Load URL mappings for URL-based content type detection
+      let urlMappings = {};
+      try {
+        const urlMappingsFile = config.resolvePath(dataConfig.urlMappings);
+        if (await exists(urlMappingsFile)) {
+          urlMappings = await readJSON(urlMappingsFile, {});
+          console.log(`🔗 Loaded ${Object.keys(urlMappings).length} URL mappings for detection`);
+        }
+      } catch (error) {
+        console.log('📋 No URL mappings found - skipping URL-based detection');
+      }
+
       // Process all HTML files
       const items = [];
       const progress = new ProgressTracker(htmlFiles.length, 'Processing HTML files');
       
       for (const filename of htmlFiles) {
-        const item = await this._processHtmlFile(filename, contentTypeMappings, customSelectors);
+        const item = await this._processHtmlFile(filename, contentTypeMappings, customSelectors, urlMappings);
         items.push(item);
         progress.update(1, `${item.post_type}: ${item.post_title.substring(0, 30)}...`);
       }

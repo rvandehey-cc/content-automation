@@ -266,16 +266,19 @@ export class HTMLScraperService {
       let rawContent = null;
       let contentFound = false;
 
-      // Try multiple content selectors in order of preference
+      // Try multiple content selectors in order of preference (most specific first)
       const contentSelectors = [
-        '#content',
-        'main',
-        '.content',
-        '.main-content',
-        'article',
-        '.post-content',
-        '.entry-content',
-        'body'
+        'article',              // Most specific - semantic HTML5 for articles
+        '.blog-post-detail',    // Dealer site specific - blog post container
+        '.post-content',        // Blog post specific
+        '.entry-content',       // WordPress specific
+        '.ddc-span8',          // DDC layout specific - main content area
+        '.ddc-content',        // DDC container
+        'main',                 // Semantic HTML5 main content
+        '.main-content',        // Common main content class
+        '#content',             // Generic content ID
+        '.content',             // Generic content class (may match footer on some sites)
+        'body'                  // Last resort fallback
       ];
 
       for (const selector of contentSelectors) {

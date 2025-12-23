@@ -74,6 +74,17 @@ export async function readFile(filePath, defaultValue = '') {
 }
 
 /**
+ * Write text file safely
+ * @param {string} filePath - Path to write to
+ * @param {string} content - Content to write
+ * @returns {Promise<void>}
+ */
+export async function writeFile(filePath, content) {
+  await ensureDir(path.dirname(filePath));
+  await fs.writeFile(filePath, content, 'utf-8');
+}
+
+/**
  * Get all files matching a pattern
  * @param {string} dirPath - Directory to search
  * @param {RegExp|string} pattern - Pattern to match (regex or extension)
