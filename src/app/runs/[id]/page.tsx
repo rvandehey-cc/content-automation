@@ -136,7 +136,7 @@ export default function RunDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="text-destructive">{error || 'Run not found'}</p>
-            <Button className="mt-4" variant="outline" onClick={() => router.push('/runs')}>
+            <Button className="mt-4" variant="light" onClick={() => router.push('/runs')} aria-label="Go back to runs list">
               Back to Runs
             </Button>
           </CardContent>
@@ -167,7 +167,7 @@ export default function RunDetailPage() {
         </div>
         <div className="flex gap-2">
           {getStatusBadge(run.status)}
-          <Button variant="outline" onClick={() => router.push('/runs')}>
+          <Button variant="light" onClick={() => router.push('/runs')} aria-label="Go back to runs list">
             Back to Runs
           </Button>
         </div>
@@ -217,7 +217,7 @@ export default function RunDetailPage() {
             {csvFilePath && (
               <div>
                 <Button asChild>
-                  <a href="/api/downloads/csv" download="wordpress-import.csv">
+                  <a href="/api/downloads/csv" download="wordpress-import.csv" aria-label="Download WordPress import CSV file">
                     Download WordPress CSV
                   </a>
                 </Button>

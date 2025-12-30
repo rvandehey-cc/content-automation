@@ -62,8 +62,9 @@ export async function POST(request: NextRequest) {
     const {
       siteProfileId,
       urls,
+      contentType,
       bypassImages,
-      customSelectors,
+      blogPostSelectors,
       customRemoveSelectors,
       wordPressSettings,
       skipScraping,
@@ -71,6 +72,14 @@ export async function POST(request: NextRequest) {
       skipContentProcessing,
       skipCSVGeneration,
     } = body;
+
+    // Validate contentType
+    if (!contentType || (contentType !== 'post' && contentType !== 'page')) {
+      return NextResponse.json(
+        { error: 'contentType is required and must be either "post" or "page"' },
+        { status: 400 }
+      );
+    }
 
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
       return NextResponse.json(
@@ -95,8 +104,9 @@ export async function POST(request: NextRequest) {
         urls: urls,
         createdBy: user.email,
         configSnapshot: {
+          contentType,
           bypassImages,
-          customSelectors,
+          blogPostSelectors,
           customRemoveSelectors,
           wordPressSettings,
           skipScraping,
@@ -112,8 +122,9 @@ export async function POST(request: NextRequest) {
     executeRun(run.id, {
       urls,
       siteProfile,
+      contentType,
       bypassImages: bypassImages || false,
-      customSelectors: customSelectors || null,
+      blogPostSelectors: blogPostSelectors || null,
       customRemoveSelectors: customRemoveSelectors || [],
       wordPressSettings: wordPressSettings || {},
       skipScraping: skipScraping || false,

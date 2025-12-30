@@ -116,7 +116,7 @@ export default function RunsPage() {
             View and monitor automation runs
           </p>
         </div>
-        <Button onClick={() => router.push('/runs/new')}>
+        <Button variant="light" onClick={() => router.push('/runs/new')} aria-label="Start a new automation run">
           Start New Run
         </Button>
       </div>
@@ -128,7 +128,7 @@ export default function RunsPage() {
             <CardDescription>Start your first automation run to get started</CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            <Button onClick={() => router.push('/runs/new')}>
+            <Button variant="light" onClick={() => router.push('/runs/new')} aria-label="Start your first automation run">
               Start New Run
             </Button>
           </CardContent>
@@ -154,6 +154,7 @@ export default function RunsPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => router.push(`/runs/${run.id}`)}
+                      aria-label={`View details for run ${run.id.slice(0, 8)}`}
                     >
                       View Details
                     </Button>

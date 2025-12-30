@@ -19,7 +19,9 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <Link href="/runs/new">
-              <Button className="w-full">Start Run</Button>
+              <Button variant="light" className="w-full" aria-label="Start a new automation run">
+                Start Run
+              </Button>
             </Link>
           </CardContent>
         </Card>
@@ -31,7 +33,9 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <Link href="/runs">
-              <Button variant="outline" className="w-full">View Runs</Button>
+              <Button variant="outline" className="w-full" aria-label="View all automation runs">
+                View Runs
+              </Button>
             </Link>
           </CardContent>
         </Card>
@@ -43,7 +47,9 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <Link href="/site-profiles">
-              <Button variant="outline" className="w-full">Manage Profiles</Button>
+              <Button variant="outline" className="w-full" aria-label="Manage site configuration profiles">
+                Manage Profiles
+              </Button>
             </Link>
           </CardContent>
         </Card>
@@ -55,7 +61,9 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <Link href="/metrics">
-              <Button variant="outline" className="w-full">View Metrics</Button>
+              <Button variant="outline" className="w-full" aria-label="View aggregated metrics and statistics">
+                View Metrics
+              </Button>
             </Link>
           </CardContent>
         </Card>

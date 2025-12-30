@@ -102,8 +102,9 @@ export class RunExecutor {
     const {
       urls,
       siteProfile,
+      contentType = 'post',
       bypassImages = false,
-      customSelectors = null,
+      blogPostSelectors = null,
       customRemoveSelectors = [],
       wordPressSettings = {},
       skipScraping = false,
@@ -113,51 +114,90 @@ export class RunExecutor {
     } = options;
 
     try {
-      // Initialize services
-      this.scraperService = new HTMLScraperService();
+      // Merge site profile config with direct options (direct options take precedence)
+      const profileConfig = siteProfile?.config || {};
+      
+      // Build blog post selectors from profile or direct options
+      const finalBlogPostSelectors = blogPostSelectors || (profileConfig.blogPost ? {
+        contentSelector: profileConfig.blogPost.contentSelector,
+        dateSelector: profileConfig.blogPost.dateSelector,
+        titleSelector: profileConfig.blogPost.titleSelector,
+      } : null);
+      
+      // Merge custom remove selectors (profile + direct)
+      const profileRemoveSelectors = profileConfig.processor?.customRemoveSelectors || [];
+      const profileBlogExclude = profileConfig.blogPost?.excludeSelectors || [];
+      const profilePageExclude = profileConfig.page?.excludeSelectors || [];
+      const allRemoveSelectors = [
+        ...profileRemoveSelectors,
+        ...customRemoveSelectors,
+        ...(contentType === 'post' ? profileBlogExclude : profilePageExclude),
+      ];
+      
+      // Determine final image bypass setting (direct option overrides profile)
+      const finalBypassImages = bypassImages || (profileConfig.images?.enabled === false);
+      
+      // Get type-specific content selector (blogPost.contentSelector or page.contentSelector)
+      const typeSpecificContentSelector = contentType === 'post' 
+        ? (profileConfig.blogPost?.contentSelector || finalBlogPostSelectors?.contentSelector)
+        : (profileConfig.page?.contentSelector);
+      
+      // Initialize services with merged config
+      this.scraperService = new HTMLScraperService({
+        contentType,
+        contentSelector: typeSpecificContentSelector || null,
+      });
       this.imageService = new ImageDownloaderService();
       
-      // Configure processor with custom options
+      // Configure processor with merged options
       const processorOptions = {
         nonInteractive: true,
-        customRemoveSelectors: customRemoveSelectors.length > 0 ? customRemoveSelectors : undefined,
-        customSelectors: customSelectors,
+        customRemoveSelectors: allRemoveSelectors.length > 0 ? allRemoveSelectors : undefined,
+        contentType,
+        blogPostSelectors: finalBlogPostSelectors,
         ...wordPressSettings,
+        // Merge processor config from profile
+        ...(profileConfig.processor || {}),
       };
       this.processorService = new ContentProcessorService(processorOptions);
-      this.csvService = new CSVGeneratorService({ customSelectors });
-
-      // Update config with settings (from site profile or direct config)
-      // Always update image config based on bypassImages
-      config.update('images', { enabled: !bypassImages });
       
-      // Update processor config with WordPress settings and custom options
+      this.csvService = new CSVGeneratorService({ 
+        contentType, 
+        blogPostSelectors: finalBlogPostSelectors,
+      });
+
+      // Update config with merged settings
+      // Image config: direct bypassImages overrides profile
+      const imageConfig = {
+        enabled: !finalBypassImages,
+        ...(profileConfig.images || {}),
+      };
+      // Direct bypassImages setting overrides profile enabled setting
+      if (bypassImages !== undefined) {
+        imageConfig.enabled = !bypassImages;
+      }
+      config.update('images', imageConfig);
+      
+      // Processor config
       const processorConfigUpdate = {
         nonInteractive: true,
         ...processorOptions,
       };
-      
-      // Merge with site profile processor config if available
-      if (siteProfile?.config?.processor) {
-        Object.assign(processorConfigUpdate, siteProfile.config.processor);
-        Object.assign(processorConfigUpdate, processorOptions); // Direct options override profile
-      }
       config.update('processor', processorConfigUpdate);
       
-      // Update CSV config with custom selectors
-      if (customSelectors) {
-        config.update('csv', { customSelectors });
-      }
+      // CSV config
+      config.update('csv', { 
+        contentType, 
+        blogPostSelectors: finalBlogPostSelectors,
+      });
       
-      // Update scraper config from site profile if available
-      if (siteProfile?.config?.scraper) {
-        config.update('scraper', siteProfile.config.scraper);
-      }
-      
-      // Update image config from site profile if available
-      if (siteProfile?.config?.images) {
-        const currentImageConfig = config.get('images');
-        config.update('images', { ...currentImageConfig, ...siteProfile.config.images });
+      // Scraper config: merge profile scraper config
+      // Note: contentSelectors from profile will be used as fallback after type-specific selector
+      if (profileConfig.scraper) {
+        const currentScraperConfig = config.get('scraper');
+        config.update('scraper', { ...currentScraperConfig, ...profileConfig.scraper });
+        // Also update the scraper service config directly
+        Object.assign(this.scraperService.config, profileConfig.scraper);
       }
 
       // Clean output directories before starting

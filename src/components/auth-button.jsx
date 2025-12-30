@@ -41,8 +41,8 @@ export function AuthButton() {
 
   return (
     <div className="flex items-center gap-4">
-      <span className="text-sm text-muted-foreground">{user.email}</span>
-      <Button variant="outline" onClick={handleLogout}>
+      <span className="text-sm text-primary-foreground/90">{user.email}</span>
+      <Button variant="light" onClick={handleLogout}>
         Logout
       </Button>
     </div>

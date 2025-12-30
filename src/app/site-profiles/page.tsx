@@ -70,8 +70,10 @@ export default function SiteProfilesPage() {
             Manage configuration profiles for different sites
           </p>
         </div>
-        <Button asChild>
-          <Link href="/site-profiles/new">Create Profile</Link>
+        <Button variant="light" asChild>
+          <Link href="/site-profiles/new" aria-label="Create a new site profile">
+            Create Profile
+          </Link>
         </Button>
       </div>
 
@@ -150,12 +152,15 @@ export default function SiteProfilesPage() {
                           size="sm"
                           asChild
                         >
-                          <Link href={`/site-profiles/${profile.id}`}>Edit</Link>
+                          <Link href={`/site-profiles/${profile.id}/edit`} aria-label={`Edit site profile ${profile.name}`}>
+                            Edit
+                          </Link>
                         </Button>
                         <Button
                           variant="destructive"
                           size="sm"
                           onClick={() => handleDelete(profile.id)}
+                          aria-label={`Delete site profile ${profile.name}`}
                         >
                           Delete
                         </Button>

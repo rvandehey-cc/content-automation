@@ -7,10 +7,12 @@ import { prisma } from '../../../../../lib/db/client.js';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    // Handle both sync and async params (Next.js 13+ uses async params)
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const { id } = resolvedParams;
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     const status = searchParams.get('status');

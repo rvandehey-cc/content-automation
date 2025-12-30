@@ -26,17 +26,25 @@ export default function NewRunPage() {
   
   // Form state
   const [urls, setUrls] = useState('')
+  const [contentType, setContentType] = useState<'post' | 'page'>('post')
   const [bypassImages, setBypassImages] = useState(false)
-  const [postSelector, setPostSelector] = useState('')
-  const [pageSelector, setPageSelector] = useState('')
+  const [postDateSelector, setPostDateSelector] = useState('')
+  const [postContentSelector, setPostContentSelector] = useState('')
   const [customRemoveSelectors, setCustomRemoveSelectors] = useState('')
   const [dealerSlug, setDealerSlug] = useState('')
-  const [imageYear, setImageYear] = useState(new Date().getFullYear().toString())
-  const [imageMonth, setImageMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'))
 
   useEffect(() => {
     fetchSiteProfiles()
   }, [])
+
+  useEffect(() => {
+    if (selectedProfileId && selectedProfileId !== 'none') {
+      loadProfileConfig(selectedProfileId)
+    } else {
+      // Reset to defaults when no profile selected
+      resetFormToDefaults()
+    }
+  }, [selectedProfileId])
 
   const fetchSiteProfiles = async () => {
     try {
@@ -48,6 +56,63 @@ export default function NewRunPage() {
     } catch (err) {
       console.error('Error fetching site profiles:', err)
     }
+  }
+
+  const loadProfileConfig = async (profileId: string) => {
+    try {
+      const response = await fetch(`/api/site-profiles/${profileId}`)
+      if (!response.ok) return
+      
+      const profile = await response.json()
+      const config = profile.config || {}
+      
+      // Apply profile config to form fields
+      // Note: User can still override these values manually
+      
+      // Blog post selectors
+      if (config.blogPost) {
+        if (config.blogPost.dateSelector) {
+          setPostDateSelector(config.blogPost.dateSelector)
+        }
+        if (config.blogPost.contentSelector) {
+          setPostContentSelector(config.blogPost.contentSelector)
+        }
+      }
+      
+      // Custom remove selectors (merge with existing)
+      if (config.processor?.customRemoveSelectors?.length > 0) {
+        const profileSelectors = config.processor.customRemoveSelectors.join('\n')
+        setCustomRemoveSelectors(prev => {
+          const existing = prev.trim()
+          return existing ? `${existing}\n${profileSelectors}` : profileSelectors
+        })
+      }
+      
+      // WordPress settings
+      if (config.wordPress) {
+        if (config.wordPress.dealerSlug) {
+          setDealerSlug(config.wordPress.dealerSlug)
+        }
+        if (config.wordPress.imageYear) {
+          // Don't override - let user keep current year/month if they want
+        }
+      }
+      
+      // Image settings
+      if (config.images?.enabled === false) {
+        setBypassImages(true)
+      }
+    } catch (err) {
+      console.error('Error loading profile config:', err)
+    }
+  }
+
+  const resetFormToDefaults = () => {
+    setPostDateSelector('')
+    setPostContentSelector('')
+    setCustomRemoveSelectors('')
+    setDealerSlug('')
+    setBypassImages(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,10 +131,12 @@ export default function NewRunPage() {
         throw new Error('Please enter at least one valid URL')
       }
 
-      // Build custom selectors
-      const customSelectors: any = {}
-      if (postSelector.trim()) customSelectors.post = postSelector.trim()
-      if (pageSelector.trim()) customSelectors.page = pageSelector.trim()
+      // Build blog post selectors if content type is post
+      const blogPostSelectors: any = {}
+      if (contentType === 'post') {
+        if (postDateSelector.trim()) blogPostSelectors.dateSelector = postDateSelector.trim()
+        if (postContentSelector.trim()) blogPostSelectors.contentSelector = postContentSelector.trim()
+      }
 
       // Parse custom remove selectors
       const removeSelectorsArray = customRemoveSelectors
@@ -77,12 +144,13 @@ export default function NewRunPage() {
         .map(s => s.trim())
         .filter(s => s.length > 0)
 
-      // Build WordPress settings
+      // Build WordPress settings - auto-set year/month to current date
+      const now = new Date()
       const wordPressSettings: any = {}
       if (!bypassImages && dealerSlug.trim()) {
         wordPressSettings.dealerSlug = dealerSlug.trim()
-        wordPressSettings.imageYear = imageYear.trim()
-        wordPressSettings.imageMonth = imageMonth.trim().padStart(2, '0')
+        wordPressSettings.imageYear = now.getFullYear().toString()
+        wordPressSettings.imageMonth = (now.getMonth() + 1).toString().padStart(2, '0')
         wordPressSettings.updateImageUrls = true
       }
 
@@ -92,8 +160,9 @@ export default function NewRunPage() {
         body: JSON.stringify({
           siteProfileId: selectedProfileId && selectedProfileId !== 'none' ? selectedProfileId : null,
           urls: urlArray,
+          contentType,
           bypassImages,
-          customSelectors: Object.keys(customSelectors).length > 0 ? customSelectors : null,
+          blogPostSelectors: Object.keys(blogPostSelectors).length > 0 ? blogPostSelectors : null,
           customRemoveSelectors: removeSelectorsArray,
           wordPressSettings,
         }),
@@ -172,10 +241,26 @@ export default function NewRunPage() {
           <CardHeader>
             <CardTitle>URLs to Scrape</CardTitle>
             <CardDescription>
-              Enter one URL per line
+              Enter one URL per line. Select content type below.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="contentType">Content Type</Label>
+              <Select value={contentType} onValueChange={(value: 'post' | 'page') => setContentType(value)}>
+                <SelectTrigger id="contentType">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="post">Blog Posts</SelectItem>
+                  <SelectItem value="page">Pages</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                <p className="font-medium mb-1">⚠️ Important:</p>
+                <p>Only process <strong>{contentType === 'post' ? 'blog posts' : 'pages'}</strong> at a time. Mixing content types in a single run is not supported.</p>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="urls">URLs</Label>
               <Textarea
@@ -228,70 +313,52 @@ export default function NewRunPage() {
                     Used for WordPress image URL generation
                   </p>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="imageYear">Upload Year</Label>
-                    <Input
-                      id="imageYear"
-                      type="number"
-                      value={imageYear}
-                      onChange={(e) => setImageYear(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="imageMonth">Upload Month (01-12)</Label>
-                    <Input
-                      id="imageMonth"
-                      type="number"
-                      min="1"
-                      max="12"
-                      value={imageMonth}
-                      onChange={(e) => setImageMonth(e.target.value.padStart(2, '0'))}
-                    />
-                  </div>
+                <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                  <p>📅 Image upload year and month will be automatically set to <strong>{new Date().getFullYear()}/{String(new Date().getMonth() + 1).padStart(2, '0')}</strong></p>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Content Type Detection */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Content Type Detection</CardTitle>
-            <CardDescription>
-              CSS selectors to identify posts vs pages (optional)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="postSelector">Post Selector</Label>
-              <Input
-                id="postSelector"
-                placeholder="post-navigation, .article-header"
-                value={postSelector}
-                onChange={(e) => setPostSelector(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                CSS class or selector that appears on blog posts
-              </p>
-            </div>
+        {/* Blog Post Configuration */}
+        {contentType === 'post' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Blog Post Configuration</CardTitle>
+              <CardDescription>
+                CSS selectors for blog post content extraction (optional)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="postDateSelector">Date Selector</Label>
+                <Input
+                  id="postDateSelector"
+                  placeholder=".post-date, time[datetime], .published-date"
+                  value={postDateSelector}
+                  onChange={(e) => setPostDateSelector(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  CSS selector to extract the publication date from blog posts
+                </p>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="pageSelector">Page Selector</Label>
-              <Input
-                id="pageSelector"
-                placeholder="page-header, .static-content"
-                value={pageSelector}
-                onChange={(e) => setPageSelector(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                CSS class or selector that appears on static pages
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="space-y-2">
+                <Label htmlFor="postContentSelector">Content Selector</Label>
+                <Input
+                  id="postContentSelector"
+                  placeholder=".post-content, article .entry-content, .blog-post-body"
+                  value={postContentSelector}
+                  onChange={(e) => setPostContentSelector(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  CSS selector to identify the main content area of blog posts
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Custom Element Removal */}
         <Card>
@@ -321,10 +388,10 @@ export default function NewRunPage() {
 
         {/* Actions */}
         <div className="flex gap-4">
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" variant="light" disabled={loading} aria-label="Start the automation run">
             {loading ? 'Starting Run...' : 'Start Run'}
           </Button>
-          <Button type="button" variant="outline" onClick={() => router.back()}>
+          <Button type="button" variant="light" onClick={() => router.back()} aria-label="Cancel and go back">
             Cancel
           </Button>
         </div>

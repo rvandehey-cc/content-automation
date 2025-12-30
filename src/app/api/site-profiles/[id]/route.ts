@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '../../../../lib/supabase/server.js';
 import { prisma } from '../../../../lib/db/client.js';
 
 /**
@@ -7,10 +8,19 @@ import { prisma } from '../../../../lib/db/client.js';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Handle both sync and async params (Next.js 13+ uses async params)
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const { id } = resolvedParams;
 
     const profile = await prisma.siteProfile.findUnique({
       where: { id },
@@ -45,10 +55,19 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Handle both sync and async params (Next.js 13+ uses async params)
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const { id } = resolvedParams;
     const body = await request.json();
     const { name, description, config } = body;
 
@@ -89,10 +108,19 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { id } = params;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Handle both sync and async params (Next.js 13+ uses async params)
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const { id } = resolvedParams;
 
     // Check if profile exists
     const existing = await prisma.siteProfile.findUnique({

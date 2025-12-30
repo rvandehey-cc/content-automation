@@ -20,6 +20,9 @@ export class ContentProcessorService {
     this.config = { ...config.get('processor'), ...options };
     this.bypassImages = !config.get('images').enabled;
     this.customRemoveSelectors = options.customRemoveSelectors || [];
+    // Store explicit content type from user selection (UI or CLI)
+    // If user selects "page" or "post"/"blog", this should override detection
+    this.explicitContentType = options.contentType || null;
   }
 
   /**
@@ -2215,7 +2218,40 @@ export class ContentProcessorService {
     console.log(`\n🔧 Processing: ${filename}`);
     
     try {
-      const html = await fs.readFile(inputPath, 'utf-8');
+      let html = await fs.readFile(inputPath, 'utf-8');
+      
+      // Fix malformed image tags in HTML string BEFORE parsing (e.g., <imgnone'" -> <img)
+      // This must happen before DOM parsing because malformed tags may not be parseable
+      // Also remove display:none style so images are visible
+      html = html.replace(/<imgnone['"]*[^>]*>/gi, (match) => {
+        // Extract the attributes from the malformed tag
+        const attrMatch = match.match(/src\s*=\s*["']([^"']+)["']/i);
+        let styleMatch = match.match(/style\s*=\s*["']([^"']+)["']/i);
+        const altMatch = match.match(/alt\s*=\s*["']([^"']+)["']/i);
+        
+        // Build a proper img tag
+        let imgTag = '<img';
+        if (attrMatch) imgTag += ` src="${attrMatch[1]}"`;
+        
+        // Process style: remove display:none and preserve other styles
+        if (styleMatch) {
+          let style = styleMatch[1];
+          // Remove display: none (case insensitive, with or without semicolon)
+          style = style.replace(/display\s*:\s*none\s*;?/gi, '').trim();
+          // Clean up any double semicolons or trailing spaces
+          style = style.replace(/;\s*;/g, ';').replace(/^\s*;\s*/, '').trim();
+          // Only add style attribute if there are remaining styles
+          if (style) {
+            imgTag += ` style="${style}"`;
+          }
+        }
+        
+        if (altMatch) imgTag += ` alt="${altMatch[1]}"`;
+        imgTag += '>';
+        
+        return imgTag;
+      });
+      
       const dom = new JSDOM(html);
       const document = dom.window.document;
       const body = document.body || document.documentElement;
@@ -2253,9 +2289,19 @@ export class ContentProcessorService {
       
       console.log(`   🌐 Detected base domain: ${baseUrl}`);
       
-      // IMPORTANT: Detect content type BEFORE cleaning (needs original classes)
-      const contentType = this._detectContentType(html, filename);
-      console.log(`   📝 Content type: ${contentType.type} (${contentType.confidence}% confidence) - ${contentType.reason}`);
+      // IMPORTANT: Use explicit content type if provided (from UI selection), otherwise detect
+      let contentType;
+      if (this.explicitContentType) {
+        contentType = {
+          type: this.explicitContentType,
+          confidence: 100,
+          reason: `Explicitly set by user selection: ${this.explicitContentType}`
+        };
+        console.log(`   📝 Content type: ${contentType.type} (${contentType.confidence}% confidence) - ${contentType.reason}`);
+      } else {
+        contentType = this._detectContentType(html, filename);
+        console.log(`   📝 Content type: ${contentType.type} (${contentType.confidence}% confidence) - ${contentType.reason}`);
+      }
       
       // STEP 0: Convert CSS background images to actual img tags (before cleaning removes styles)
       this._convertBackgroundImagesToImg(body, filename);

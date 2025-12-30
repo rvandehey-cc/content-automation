@@ -19,24 +19,24 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <nav className="border-b">
+        <nav className="bg-primary border-b border-primary/20">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
-              <Link href="/" className="text-xl font-bold">
+              <Link href="/" className="text-xl font-bold text-primary-foreground">
                 Content Automation
               </Link>
               <div className="flex items-center gap-6">
                 <div className="flex gap-4">
-                  <Link href="/" className="text-sm hover:underline">
+                  <Link href="/" className="text-sm text-primary-foreground hover:underline">
                     Home
                   </Link>
-                  <Link href="/runs" className="text-sm hover:underline">
+                  <Link href="/runs" className="text-sm text-primary-foreground hover:underline">
                     Runs
                   </Link>
-                  <Link href="/site-profiles" className="text-sm hover:underline">
+                  <Link href="/site-profiles" className="text-sm text-primary-foreground hover:underline">
                     Site Profiles
                   </Link>
-                  <Link href="/metrics" className="text-sm hover:underline">
+                  <Link href="/metrics" className="text-sm text-primary-foreground hover:underline">
                     Metrics
                   </Link>
                 </div>
