@@ -23,25 +23,38 @@
    npm run install-browsers
    ```
 
-## Configuration
+## Configuration & Setup
 
-Create a `.env` file in the root directory. Key configuration options include:
+### 1. Environment Variables
+Copy `.env.example` to `.env` and configure the following:
+- **CLI Settings**: `USER_NAME`, `TARGET_URLS_FILE`.
+- **Database**: `DATABASE_URL` (Supabase connection string).
+- **Web UI**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
-```env
-# Scraper Settings
-SCRAPER_HEADLESS=true
-SCRAPER_TIMEOUT=60000
+### 2. Database Setup
+The project uses Supabase for persistence and Prisma as the ORM.
+1. **Docker**: Start the Redis container for BullMQ: `npm run docker:up`.
+2. **Migrations**: Apply database migrations: `npm run db:migrate`.
+3. **Prisma Client**: Generate the type-safe client: `npm run db:generate`.
 
-# Processor Settings
-DEALER_SLUG=my-dealership
-IMAGE_YEAR=2024
-IMAGE_MONTH=01
+### 3. Web Dashboard Setup
+The dashboard is a Next.js 16 application.
+1. **Development Server**: `npm run dev:web`.
+2. **First-time User**: Access `/auth/signup` to create your management account.
 
-# Input Files
-URLS_FILE=data/urls.txt
+---
+
+## Execution Modes
+
+### 1. Web-First (Recommended)
+Launch the dashboard (`npm run dev:web`) to manage site profiles and trigger scraping jobs from the UI. This provides the best observability via real-time logs and metrics.
+
+### 2. CLI-Only (Legacy/Automated)
+Run the core automation directly from the terminal:
+```bash
+npm start
 ```
-
-Refer to `src/config/index.js` for a full list of available settings and defaults.
+This will process the URLs listed in `data/urls.txt` using the default configuration.
 
 ## Usage
 

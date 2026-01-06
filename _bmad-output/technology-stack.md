@@ -5,20 +5,23 @@
 | Technology | Purpose | Key Dependency |
 |------------|---------|----------------|
 | **Runtime** | Execution Environment | Node.js >= 18.0.0 |
-| **Automation** | Headless Browser Control | `playwright` |
-| **DOM Engine** | HTML Parsing and Rendering | `jsdom` |
-| **Fast Parsing** | Lightweight Content Extraction | `cheerio` |
-| **Storage** | Enhanced Filesystem API | `fs-extra` |
-| **Concurrency** | Managing Parallel Operations | `p-queue` |
-| **Environment** | Configuration Management | `dotenv` |
-| **Logging** | Structured Application Logs | `winston` |
+### 1. Frontend & UI
+- **Next.js 16**: Modern React framework for the management dashboard.
+- **React 19**: Latest React features for interactive components.
+- **Tailwind CSS**: Utility-first CSS for rapid, consistent styling.
+- **shadcn/ui**: Accessible, customizable component primitives.
+- **Lucide React**: Vector icons for the UI.
 
-## Dependency Analysis
+### 2. Backend & Persistence
+- **Supabase**: Managed PostgreSQL database and Authentication provider.
+- **Prisma ORM**: Type-safe query builder and migration tool.
+- **BullMQ**: High-performance Redis-based job queue for async scraping.
+- **Redis**: In-memory data structure store used as the BullMQ backend.
 
-### Production Dependencies
-- **playwright**: Used for headless browser automation. Chosen for its superior handling of SPAs and modern site protections like Cloudflare.
-- **jsdom**: Provides a full DOM implementation in Node.js. Used in the `ContentProcessorService` for complex HTML manipulations that require a standard DOM API.
-- **cheerio**: Used for faster, lighter-weight HTML parsing and selection where a full DOM isn't necessary.
+### 3. Core Automation (The "Scraper")
+- **Playwright ^1.40.0**: Headless browser automation (Chromium).
+- **JSDOM ^23.2.0**: DOM emulation for server-side HTML cleaning.
+- **Cheerio ^1.0.0-rc.12**: Fast, flexible HTML parsing for lightweight extraction.
 - **fs-extra**: Adds promise support and convenience methods (like `ensureDir`) to the standard `fs` module.
 - **winston**: Standardized logging for CLI execution debugging.
 

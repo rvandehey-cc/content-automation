@@ -2,36 +2,40 @@
 
 ## System Architecture
 
-The project follows a **Service-Oriented Layered Architecture**, where each major stage of the content automation pipeline is encapsulated in a dedicated service. This separation of concerns allows for robust error handling, retries, and modular development.
+The project has transitioned to a **Hybrid Platform Architecture**, combining the high-performance execution of a Node.js CLI with the accessibility and observability of a modern web application.
 
-### 1. Orchestration Layer (`src/cli/`)
-The `automation.js` controller manages the lifecycle of a scraping run. It initializes services, passes data between them, and ensures the pipeline completes successfully or fails gracefully.
+### 1. Management & UI Layer (`src/app/`, `src/components/`)
+A **Next.js 16** web dashboard serves as the primary interface for users to:
+- Authenticate via **Supabase Auth**.
+- Manage "Site Profiles" (configurations for specific dealerships).
+- Trigger and monitor automation runs in real-time.
+- View metrics and logs.
 
-### 2. Service Layer (`src/core/`)
-- **HTMLScraperService**: Operates at the network/browser level. Responsible for fetching raw HTML. It includes logic for Cloudflare bypass, URL validation, and automated filename generation.
-- **ImageDownloaderService**: An auxiliary service that handles binary assets. It downloads images synchronously or concurrently and maintains a mapping between original URLs and local filenames.
-- **ContentProcessorService**: The most complex service. It uses JSDOM to parse HTML and applies a series of transformations:
-  - **Selector Filtering**: Removes unwanted elements (headers, footers, forms, scripts).
-  - **Class/ID Sanitization**: Strips most styling attributes but preserves a whitelist of Bootstrap layout classes (e.g., `col-md-6`, `row`).
-  - **Path Normalization**: Re-paths internal links and image `src` attributes to match the target WordPress environment.
-- **CSVGeneratorService**: Transforms the final processed JSON/HTML data into a structured CSV format compatible with WordPress import plugins.
+### 2. Persistence Layer (`prisma/`, `src/lib/db/`)
+All application state is persisted in a **Supabase PostgreSQL** database.
+- **Prisma ORM**: Used for type-safe database access and schema migrations.
+- **Models**: Includes SiteProfiles, Runs, Metrics, and Auth users.
 
-### 3. Support Layer (`src/utils/`)
-Provides shared logic for filesystem operations, custom error classes, and resilient retry mechanisms used across all services.
+### 3. Execution & Orchestration Layer (`src/cli/`, `src/core/`)
+The original CLI core handles the heavy-duty automation:
+- **Automation Pipeline**: Triggered either manually via terminal or as an async job from the web UI.
+- **Service Layer**: Scraper, Processor, Image Downloader, and CSV Generator services operate as specialized modules within the pipeline.
+
+### 4. Async Job Layer (New)
+- **BullMQ / Redis**: Used to offload long-running scraping tasks from the web server thread. Redis acts as the message broker for job queueing and state tracking.
 
 ## Data Flow Diagram
 
 ```mermaid
 graph TD
-    A[data/urls.txt] --> B(HTMLScraperService)
-    B --> C[output/scraped-content/]
-    C --> D(ImageDownloaderService)
-    D --> E[output/images/]
-    E --> F(ContentProcessorService)
-    C --> F
-    F --> G[output/clean-content/]
-    G --> H(CSVGeneratorService)
-    H --> I[output/wp-ready/wordpress-import.csv]
+    User([User]) -->|Auth/Web UI| NextJS[Next.js Dashboard]
+    NextJS -->|CRUD| Prisma[Prisma ORM]
+    Prisma -->|Query/Write| DB[(Supabase DB)]
+    NextJS -->|Queue Job| Redis[(Redis / BullMQ)]
+    Redis -->|Process Job| CLI[Automation CLI]
+    CLI -->|Scrape| Web[Target Websites]
+    CLI -->|Read/Write| Prisma
+    CLI -->|Output| Files[output/wp-ready/]
 ```
 
 ## Resiliency Patterns

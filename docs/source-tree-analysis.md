@@ -5,11 +5,13 @@
 ```
 wp-content-automation/
 ├── src/
+│   ├── app/            # Next.js App Router root. Contains all frontend pages and API routes.
 │   ├── cli/            # CLI Orchestration Layer
 │   │   ├── automation.js # Main pipeline entry point
 │   │   ├── scraper.js    # Scraper CLI wrapper
 │   │   ├── processor.js  # Processor CLI wrapper
 │   │   └── ...
+│   ├── components/     # React components. Includes `ui/` (shadcn components) and custom business components like `auth-button.jsx`.
 │   ├── core/           # Business Logic Services
 │   │   ├── scraper.js    # HTMLScraperService
 │   │   ├── image-downloader.js # ImageDownloaderService
@@ -17,10 +19,13 @@ wp-content-automation/
 │   │   └── csv-generator.js # CSVGeneratorService
 │   ├── config/         # Configuration Management
 │   │   └── index.js      # Centralized Config class
-│   └── utils/          # Shared Utilities
-│       ├── errors.js     # Error handling and retry logic
-│       ├── filesystem.js # File/JSON helpers
-│       └── ...
+│   ├── lib/            # Shared libraries for both CLI and Web. Includes database clients and utility wrappers.
+│   │   └── db/         # Connection logic for PostgreSQL and Prisma initialization.
+│   ├── utils/          # Shared Utilities
+│   │   ├── errors.js     # Error handling and retry logic
+│   │   ├── filesystem.js # File/JSON helpers
+│   │   └── ...
+│   └── middleware.js   # Next.js middleware for route protection (Supabase Auth).
 ├── data/               # Input Data & Local Config
 │   ├── urls.txt        # Target scrape list
 │   └── ...

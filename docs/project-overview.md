@@ -1,13 +1,14 @@
 # Project Overview: wp-content-automation
 
 ## Executive Summary
-`wp-content-automation` (internally `headless-scraper`) is a robust, modular automation pipeline designed to scrape content from websites (specifically targeting automotive dealership sites) and process it for import into WordPress. It handles complex challenges like Cloudflare protection, image downloading, HTML sanitization, and link normalization.
+`wp-content-automation` (internally `headless-scraper`) is a sophisticated hybrid automation ecosystem. Originally a Node.js CLI tool, it has evolved into a comprehensive platform featuring a **Next.js Web Dashboard** for management and observability, and a **PostgreSQL (Supabase)** persistence layer for tracking site profiles and scraping runs.
 
 ## Core Objectives
 - **Robust Scraping**: Reliable content extraction from JS-heavy sites using Playwright.
-- **Content Sanitization**: Aggressive cleaning of HTML while preserving Bootstrap layout classes for consistent styling in WordPress.
+- **Enterprise Management**: A centralized web interface to manage dealer site profiles, configurations, and job monitoring.
+- **Data Persistence**: Centralized storage of scraping results, logs, and site metadata using Prisma and Supabase.
+- **Content Sanitization**: Aggressive cleaning of HTML while preserving Bootstrap structure for WordPress portability.
 - **Asset Management**: Automatic downloading and mapping of images to the WordPress upload directory structure.
-- **Seamless Integration**: Generation of WordPress-ready CSV files for bulk content migration.
 
 ## Technology Stack
 - **Runtime**: Node.js >= 18.0.0

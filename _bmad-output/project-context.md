@@ -35,21 +35,21 @@ When modifying the `ContentProcessorService`, follow the aggressive cleaning rul
 - **WHITELIST EXCEPTIONS**: Preserve Bootstrap layout classes:
   - `row`, `container`, `container-fluid`, `col-*`
   - `text-left`, `text-center`, `text-right`
-  - `mt-*`, `mb-*`, `pt-*`, `pb-*` (spacing utilities)
-  - `d-none`, `d-block`, `align-*`, `justify-*`
+- **Dealer Specifics**: Maintain `.dealer-name` or `.inventory-item` if explicitly needed for metadata extraction.
 
-### 2. Image Path Mapping
-Image URLs must be normalized to the Dealer Inspire development environment structure:
-- **Format**: `https://di-uploads-development.dealerinspire.com/${dealerSlug}/uploads/${year}/${month}/${filename}`
-- **Context**: Never leave raw source URLs in processed output.
+### 2. Persistence Layer (Prisma)
+- **Client Usage**: Always use the singleton client from `@/lib/db/client`.
+- **Migrations**: Never modify `schema.prisma` without documenting the change in `PRISMA_SETUP.md`.
+- **Querying**: Favor `findUnique` and `upsert` for idempotent record management in the scraper pipeline.
 
-### 3. Selector Strategy
-Always use the prioritized selector list in `scraper.js`. Do not hardcode specific site IDs unless absolutely necessary as a final fallback.
-- **Priority**: `article` > `.post-content` > `.entry-content` > `main` > `body`
+### 3. Frontend (Next.js & React)
+- **App Router**: Use `/app` for all routes. Components must be Server Components by default.
+- **UI primitives**: Always use shadcn components from `@/components/ui`. Do not create ad-hoc styled components.
+- **Auth**: Use the `middleware.ts` logic for route protection. Check sessions via Supabase server-side helpers in layouts.
 
-### 4. File I/O
-- Always use `fs-extra` for promise-based operations.
-- Use `config.resolvePath()` for all file/directory references to ensure cross-OS compatibility.
+### 4. Job Management (BullMQ)
+- **Naming**: Use descriptive job names (e.g., `scrape-dealer-xyz`).
+- **Retries**: Configure exponential backoff for all scraping jobs to handle network flakiness.
 
 ## 📂 Knowledge Mapping
 - **Overview**: `_bmad-output/project-overview.md`

@@ -2,24 +2,23 @@
 
 ## Project Overview
 
-- **Type**: Monolith CLI Tool
-- **Primary Language**: JavaScript (Node.js >=18.0.0)
-- **Architecture**: Service-Oriented Layered Architecture
+- **Type**: Hybrid CLI/Web Automation Ecosystem
+- **Primary Language**: JavaScript (Node.js >=18.0.0, Next.js 16)
+- **Architecture**: Hybrid Service-Oriented (CLI) + Management Dashboard (Web)
 - **Project Name**: wp-content-automation (headless-scraper)
 
 ## Quick Reference
 
 ### Tech Stack Summary
-- **Runtime**: Node.js >=18.0.0
-- **Browser Automation**: Playwright ^1.40.0
-- **DOM Manipulation**: JSDOM ^23.2.0, Cheerio ^1.0.0-rc.12
-- **Logging**: Winston ^3.11.0
-- **Environment**: dotenv ^16.6.1
+- **Frontend**: Next.js 16, React 19, Tailwind CSS, shadcn/ui
+- **Persistence**: Supabase (Postgres), Prisma ORM
+- **Automation**: Playwright ^1.40.0
+- **Jobs**: BullMQ, Redis
 
 ### Entry Points
+- **Web Dashboard**: `npm run dev:web` (Access at localhost:3000)
 - **Main CLI**: `src/cli/automation.js` (Run with `npm start`)
-- **Helper Tool**: `wp-metadata-helper.js` (Bookmarklet for WP Alt Text)
-- **Helper Tool**: `wp-bulk-alt-fixer.js` (Bulk Alt Text utility)
+- **Database**: `prisma/schema.prisma`
 
 ## Generated Documentation
 
