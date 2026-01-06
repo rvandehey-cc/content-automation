@@ -2,6 +2,18 @@
 
 ## Directory Structure Overview
 
+### Root Directory
+- **`prisma/`**: Database schema definition (`schema.prisma`) and migration history.
+- **`src/`**: Shared source code for CLI and Web Dashboard.
+- **`public/`**: Static assets for the Next.js frontend.
+- **`package.json`**: Project manifest and dependency definitions.
+
+### Core Configuration
+- **`src/config/index.js`**: Centralized service and CLI configuration loader.
+- **`prisma.config.ts`**: Database orchestration config for Prisma migrations.
+- **`next.config.js`**: Web dashboard build and runtime configuration.
+- **`tailwind.config.ts`**: Design system tokens and Tailwind configuration.
+
 ```
 wp-content-automation/
 ├── src/
@@ -16,7 +28,7 @@ wp-content-automation/
 │   │   ├── scraper.js    # HTMLScraperService
 │   │   ├── image-downloader.js # ImageDownloaderService
 │   │   ├── processor.js  # ContentProcessorService
-│   │   └── csv-generator.js # CSVGeneratorService
+│      └── csv-generator.js # CSVGeneratorService
 │   ├── config/         # Configuration Management
 │   │   └── index.js      # Centralized Config class
 │   ├── lib/            # Shared libraries for both CLI and Web. Includes database clients and utility wrappers.

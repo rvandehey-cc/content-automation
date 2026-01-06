@@ -25,36 +25,31 @@
 
 ## Configuration & Setup
 
-### 1. Environment Variables
-Copy `.env.example` to `.env` and configure the following:
-- **CLI Settings**: `USER_NAME`, `TARGET_URLS_FILE`.
-- **Database**: `DATABASE_URL` (Supabase connection string).
-- **Web UI**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+### 1. Primary Setup Guide
+All project configuration, environment variables, and database setup instructions have been consolidated into the root **[README.md](../README.md)**. Use that file as the single source of truth for:
+- Database Configuration (Supabase & Prisma)
+- Redis / Docker Setup
+- Environment Variable reference
+- Web Dashboard and CLI execution commands
 
-### 2. Database Setup
-The project uses Supabase for persistence and Prisma as the ORM.
-1. **Docker**: Start the Redis container for BullMQ: `npm run docker:up`.
-2. **Migrations**: Apply database migrations: `npm run db:migrate`.
-3. **Prisma Client**: Generate the type-safe client: `npm run db:generate`.
-
-### 3. Web Dashboard Setup
-The dashboard is a Next.js 16 application.
-1. **Development Server**: `npm run dev:web`.
-2. **First-time User**: Access `/auth/signup` to create your management account.
+### 2. Quick Execution Reference
+- **Development Server**: `npm run dev:web`
+- **Automation CLI**: `npm start`
+- **Database Migrations**: `npm run db:migrate`
+- **Database Visualizer**: `npm run db:studio`
 
 ---
 
 ## Execution Modes
 
-### 1. Web-First (Recommended)
-Launch the dashboard (`npm run dev:web`) to manage site profiles and trigger scraping jobs from the UI. This provides the best observability via real-time logs and metrics.
+### 1. Web-First (Unified Dashboard)
+Launch the dashboard to manage site profiles, trigger scraping jobs, and track metrics with real-time feedback.
 
-### 2. CLI-Only (Legacy/Automated)
-Run the core automation directly from the terminal:
+### 2. CLI-Only (Direct Automation)
+Run the core automation directly from the terminal for batch processing or legacy compatibility.
 ```bash
 npm start
 ```
-This will process the URLs listed in `data/urls.txt` using the default configuration.
 
 ## Usage
 
