@@ -23,7 +23,11 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching site profiles:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch site profiles' },
+      { 
+        error: 'Failed to fetch site profiles',
+        details: error instanceof Error ? error.message : String(error),
+        stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     );
   }

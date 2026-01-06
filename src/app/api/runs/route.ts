@@ -39,7 +39,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching runs:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch runs' },
+      { 
+        error: 'Failed to fetch runs',
+        details: error instanceof Error ? error.message : String(error),
+        stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
@@ -149,7 +153,21 @@ export async function POST(request: NextRequest) {
  * Execute run asynchronously
  * @private
  */
-async function executeRun(runId, options) {
+interface ExecuteRunOptions {
+  urls: string[];
+  siteProfile: any;
+  contentType: 'post' | 'page';
+  bypassImages: boolean;
+  blogPostSelectors: any;
+  customRemoveSelectors: string[];
+  wordPressSettings: Record<string, any>;
+  skipScraping: boolean;
+  skipImageProcessing: boolean;
+  skipContentProcessing: boolean;
+  skipCSVGeneration: boolean;
+}
+
+async function executeRun(runId: string, options: ExecuteRunOptions): Promise<void> {
   const executor = new RunExecutor(runId);
   await executor.execute(options);
 }
