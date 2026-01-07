@@ -8,8 +8,8 @@ import fs from 'fs-extra';
 import path from 'path';
 import { JSDOM } from 'jsdom';
 import config from '../config/index.js';
-import { CSVGenerationError, handleError, ProgressTracker } from '../utils/errors.js';
-import { readJSON, writeJSON, getFiles, ensureDir, exists } from '../utils/filesystem.js';
+import { CSVGenerationError, ProgressTracker } from '../utils/errors.js';
+import { writeJSON, getFiles, ensureDir, exists } from '../utils/filesystem.js';
 
 /**
  * WordPress CSV Generator Service
@@ -27,8 +27,8 @@ export class CSVGeneratorService {
 
   // Constants for reuse
   static MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 
-                   'july', 'august', 'september', 'october', 'november', 'december',
-                   'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    'july', 'august', 'september', 'october', 'november', 'december',
+    'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
   
   static FOLDER_PREFIXES = ['blog', 'blogs', 'post', 'posts', 'page', 'pages', 'article', 'articles'];
   
@@ -529,7 +529,7 @@ export class CSVGeneratorService {
         // Helper function to convert plain class names to CSS selectors
         const normalizeSelector = (selector) => {
           if (!selector) return selector;
-          if (!/^[.#\[]/.test(selector) && !/[\s>+~\[]/.test(selector)) {
+          if (!/^[.#[]/.test(selector) && !/[\s>+~[]/.test(selector)) {
             return `.${selector}`;
           }
           return selector;
@@ -580,12 +580,12 @@ export class CSVGeneratorService {
         // Handle fallback logic
         if (customSelectors.post && !customSelectors.page) {
           console.log(`   📄 Post class '${customSelectors.post}' not found in ${filename}, defaulting to page`);
-          return { type: 'page', confidence: 80, reason: `Post class not found, defaulting to page` };
+          return { type: 'page', confidence: 80, reason: 'Post class not found, defaulting to page' };
         }
 
         if (customSelectors.page && !customSelectors.post) {
           console.log(`   📝 Page class '${customSelectors.page}' not found in ${filename}, defaulting to post`);
-          return { type: 'post', confidence: 80, reason: `Page class not found, defaulting to post` };
+          return { type: 'post', confidence: 80, reason: 'Page class not found, defaulting to post' };
         }
 
         if (customSelectors.post && customSelectors.page) {
@@ -821,11 +821,11 @@ export class CSVGeneratorService {
       let processedHtml;
       try {
         processedHtml = await fs.readFile(cleanPath, 'utf-8');
-        console.log(`   📄 Using processed HTML with updated links from clean-content/`);
+        console.log('   📄 Using processed HTML with updated links from clean-content/');
       } catch (error) {
         // Fallback to original if clean-content doesn't exist
         processedHtml = originalHtml;
-        console.log(`   ⚠️  clean-content not found, using original HTML`);
+        console.log('   ⚠️  clean-content not found, using original HTML');
       }
       
       // Clean content (preserve HTML formatting) - use processed HTML with updated links
@@ -894,7 +894,7 @@ export class CSVGeneratorService {
       const cleanExists = await exists(cleanDir);
       
       if (!cleanExists && !scrapedExists) {
-        throw new CSVGenerationError(`No content directories found. Run the scraper and processor first!`);
+        throw new CSVGenerationError('No content directories found. Run the scraper and processor first!');
       }
       
       // Prefer clean content over scraped content
@@ -1010,7 +1010,7 @@ export class CSVGeneratorService {
       return summary;
 
     } catch (error) {
-        throw new CSVGenerationError('CSV generation failed', null, error);
+      throw new CSVGenerationError('CSV generation failed', null, error);
     }
   }
 }

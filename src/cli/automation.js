@@ -123,7 +123,6 @@ class ContentAutomationPipeline {
     
     // Also save to a persistent file for future runs
     try {
-      const dataConfig = config.get('data');
       const selectorsPath = config.resolvePath('data/custom-selectors.json');
       await writeJSON(selectorsPath, selectors);
       console.log('💾 Custom selectors saved to data/custom-selectors.json for future use');
@@ -273,7 +272,6 @@ class ContentAutomationPipeline {
       'Find all images in HTML files and download with organized naming');
 
     // Check if we should skip image processing
-    const scraperConfig = config.get('scraper');
     const imageConfig = config.get('images');
     const outputDir = config.resolvePath(imageConfig.outputDir);
     let skipImageProcessing = false;
@@ -407,7 +405,7 @@ class ContentAutomationPipeline {
     );
 
     // Get month
-    const imageMonth = await cli.askInput(
+    let imageMonth = await cli.askInput(
       `📅 Enter the upload month (01-12, default: ${currentMonth}):`,
       processingConfig.imageMonth || currentMonth
     );
@@ -581,7 +579,7 @@ class ContentAutomationPipeline {
 
         cli.displaySuccess(`Step 4 Complete: ${results.generatedFiles} CSV file(s) generated successfully!`);
         
-        console.log(`📊 Generated content summary:`);
+        console.log('📊 Generated content summary:');
         console.log(`   📝 Posts: ${results.posts}`);
         console.log(`   📄 Pages: ${results.pages}`);
         console.log(`   📦 Total items: ${results.processedItems}`);

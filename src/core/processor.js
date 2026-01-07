@@ -8,7 +8,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { JSDOM } from 'jsdom';
 import config from '../config/index.js';
-import { ProcessingError, handleError, ProgressTracker } from '../utils/errors.js';
+import { ProcessingError, ProgressTracker } from '../utils/errors.js';
 import { readJSON, writeJSON, getFiles, ensureDir } from '../utils/filesystem.js';
 
 /**
@@ -156,7 +156,7 @@ export class ContentProcessorService {
     const links = element.querySelectorAll('a[href]');
     
     if (links.length === 0) {
-      console.log(`   🔗 No links found to process`);
+      console.log('   🔗 No links found to process');
       return;
     }
     
@@ -287,7 +287,7 @@ export class ContentProcessorService {
     });
     
     // Show summary of link processing
-    console.log(`   📊 Link processing summary:`);
+    console.log('   📊 Link processing summary:');
     console.log(`      💰 Finance: ${linksProcessed.finance}`);
     console.log(`      🔄 Trade: ${linksProcessed.trade}`);
     console.log(`      📞 Contact/Directions: ${linksProcessed.contact}`);
@@ -313,7 +313,7 @@ export class ContentProcessorService {
    * @param {Object} imageMapping - Image mapping data
    * @param {Object} dealerConfig - Dealer configuration
    */
-  _updateImageSources(element, imageMapping, dealerConfig) {
+  _updateImageSources(element, imageMapping, _dealerConfig) {
     // Skip image processing if bypassed
     if (this.bypassImages) {
       return;
@@ -449,7 +449,7 @@ export class ContentProcessorService {
    * @param {Document} body - Document body
    * @param {string} filename - Filename for context
    */
-  _removeBlogElements(body, filename) {
+  _removeBlogElements(body, _filename) {
     let elementsRemoved = 0;
     
     // Remove elements by text content patterns (breadcrumbs, dates, author info, etc.)
@@ -712,7 +712,7 @@ export class ContentProcessorService {
         selector = selector.trim();
         
         // If it doesn't start with . # [ or contain spaces/special chars, treat as class name
-        if (!/^[.#\[]/.test(selector) && !/[\s>+~\[]/.test(selector)) {
+        if (!/^[.#[]/.test(selector) && !/[\s>+~[]/.test(selector)) {
           return `.${selector}`;
         }
         return selector;
@@ -809,7 +809,7 @@ export class ContentProcessorService {
         selector = selector.trim();
         
         // If it doesn't start with . # [ or contain spaces/special chars, treat as class name
-        if (!/^[.#\[]/.test(selector) && !/[\s>+~\[]/.test(selector)) {
+        if (!/^[.#[]/.test(selector) && !/[\s>+~[]/.test(selector)) {
           return `.${selector}`;
         }
         return selector;
@@ -1012,7 +1012,7 @@ export class ContentProcessorService {
    * @param {Document} body - Document body
    * @param {string} filename - Filename for logging
    */
-  _removeDealershipBlocks(body, filename) {
+  _removeDealershipBlocks(body, _filename) {
     let removedCount = 0;
     
     // Remove iframes EXCEPT for video content (YouTube, Vimeo, etc.)
@@ -1052,10 +1052,10 @@ export class ContentProcessorService {
       try {
         // Skip if element is no longer in DOM
         if (!h2.parentNode) return;
-      const text = h2.textContent || '';
-      const textLower = text.toLowerCase().trim();
+        const text = h2.textContent || '';
+        const textLower = text.toLowerCase().trim();
       
-      if (textLower.includes('dealership') && textLower.includes('information') ||
+        if (textLower.includes('dealership') && textLower.includes('information') ||
           textLower.includes('contact') && (textLower.includes('us') || textLower.includes('info')) ||
           textLower.includes('visit') && textLower.includes('us') ||
           textLower.includes('our') && textLower.includes('location') ||
@@ -1068,24 +1068,24 @@ export class ContentProcessorService {
           textLower === 'inventory' ||
           textLower.includes('search') && textLower.includes('inventory')) {
         
-        // Remove the heading and all following content until next heading or end
-        let nextElement = h2.nextElementSibling;
-        h2.remove();
-        removedCount++;
+          // Remove the heading and all following content until next heading or end
+          let nextElement = h2.nextElementSibling;
+          h2.remove();
+          removedCount++;
         
-        while (nextElement && !['H1', 'H2', 'H3'].includes(nextElement.tagName)) {
-          const elementToRemove = nextElement;
-          nextElement = nextElement.nextElementSibling;
-          try {
-            if (elementToRemove.parentNode) {
-              elementToRemove.remove();
-              removedCount++;
+          while (nextElement && !['H1', 'H2', 'H3'].includes(nextElement.tagName)) {
+            const elementToRemove = nextElement;
+            nextElement = nextElement.nextElementSibling;
+            try {
+              if (elementToRemove.parentNode) {
+                elementToRemove.remove();
+                removedCount++;
+              }
+            } catch (removeError) {
+              console.warn(`   ⚠️ Could not remove element in H2 section: ${removeError.message}`);
             }
-          } catch (removeError) {
-            console.warn(`   ⚠️ Could not remove element in H2 section: ${removeError.message}`);
           }
         }
-      }
       } catch (error) {
         console.warn(`   ⚠️ Error processing H2 element for dealership removal: ${error.message}`);
       }
@@ -1138,7 +1138,7 @@ export class ContentProcessorService {
     // IMPORTANT: Links in article content should be preserved, not removed
     const links = body.querySelectorAll('a');
     links.forEach(link => {
-      const href = link.getAttribute('href') || '';
+      const _href = link.getAttribute('href') || '';
       const text = link.textContent || '';
       const textLower = text.toLowerCase().trim();
       
@@ -1222,7 +1222,7 @@ export class ContentProcessorService {
                  !element.closest('table') &&  // Don't remove elements inside tables
                  !element.querySelector('table') &&  // Don't remove divs containing tables
                  text.length < 200 && (
-            textLower.includes('browse our inventory') ||
+          textLower.includes('browse our inventory') ||
             textLower.includes('search our inventory') ||
             textLower.includes('view inventory') ||
             textLower.includes('current specials') ||
@@ -1259,7 +1259,7 @@ export class ContentProcessorService {
    * @param {Document} body - Document body
    * @param {string} filename - Filename for logging
    */
-  _removeTestimonialBlocks(body, filename) {
+  _removeTestimonialBlocks(body, _filename) {
     let removedCount = 0;
     
     // Remove H2/H3 headings with testimonials/reviews and their following content
@@ -1455,7 +1455,7 @@ export class ContentProcessorService {
     const markedParagraphs = Array.from(body.querySelectorAll('p[data-list-item="true"]'));
     let currentGroup = [];
     
-    markedParagraphs.forEach((p, index) => {
+    markedParagraphs.forEach((p, _index) => {
       currentGroup.push(p);
       
       // Check if next element is also a list item
@@ -1925,7 +1925,7 @@ export class ContentProcessorService {
    * @param {Document} body - Document body
    * @param {string} filename - Filename for logging
    */
-  _convertBackgroundImagesToImg(body, filename) {
+  _convertBackgroundImagesToImg(body, _filename) {
     let convertedCount = 0;
     let duplicatesSkipped = 0;
     const seenImages = new Map(); // Track normalized URLs -> best variant (prefer without query params)
@@ -2012,7 +2012,7 @@ export class ContentProcessorService {
    * @param {Document} body - Document body
    * @param {string} filename - Filename for logging
    */
-  _removeSidebarElements(body, filename) {
+  _removeSidebarElements(body, _filename) {
     let removedCount = 0;
     
     // Sidebar and navigation class patterns to remove
@@ -2082,7 +2082,7 @@ export class ContentProcessorService {
    * @param {Document} body - Document body
    * @param {string} filename - Filename for logging
    */
-  _removeCustomSelectors(body, filename) {
+  _removeCustomSelectors(body, _filename) {
     if (!this.customRemoveSelectors || this.customRemoveSelectors.length === 0) {
       return;
     }
@@ -2130,7 +2130,7 @@ export class ContentProcessorService {
    * @param {Document} body - Document body
    * @param {string} filename - Filename for logging
    */
-  _removeDateElements(body, filename) {
+  _removeDateElements(body, _filename) {
     let removedCount = 0;
     
     // Date class patterns to identify and remove
@@ -2408,7 +2408,7 @@ export class ContentProcessorService {
       // Save processed file
       await fs.writeFile(outputPath, cleanHtml, 'utf-8');
       
-      console.log(`   ✅ Sanitized and saved to clean-content/`);
+      console.log('   ✅ Sanitized and saved to clean-content/');
       
       return {
         filename,
@@ -2460,7 +2460,7 @@ export class ContentProcessorService {
    * @param {Object} options - Processing options
    * @returns {Promise<Object>} Processing results
    */
-  async processContent(options = {}) {
+  async processContent(_options = {}) {
     try {
       console.log('🧹 Starting HTML Sanitization for WordPress');
       console.log(`📁 Input: ${this.config.inputDir}/ (scraped HTML)`);

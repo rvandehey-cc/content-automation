@@ -179,7 +179,7 @@ async function displayCleanupPreview(allPaths) {
   }
 
   console.log('');
-  console.log(`📊 CLEANUP SUMMARY:`);
+  console.log('📊 CLEANUP SUMMARY:');
   console.log(`   🎯 Items found: ${itemsFound}/${allPaths.length}`);
   console.log(`   📄 Total files: ${totalFiles}`);
   console.log(`   💾 Total size: ${formatSize(totalSize)}`);

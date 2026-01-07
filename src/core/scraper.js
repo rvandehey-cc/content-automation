@@ -8,7 +8,7 @@ import { chromium } from 'playwright';
 import fs from 'fs-extra';
 import config from '../config/index.js';
 import { ScraperError, handleError, retry, ProgressTracker } from '../utils/errors.js';
-import { readJSON, writeJSON, getFiles } from '../utils/filesystem.js';
+import { writeJSON, getFiles } from '../utils/filesystem.js';
 
 /**
  * HTML Scraper Service
@@ -546,7 +546,7 @@ export class HTMLScraperService {
         } catch (error) {
           const errorInfo = handleError(error, { url, index: i });
           errors.push(errorInfo);
-          progress.update(1, `❌ Failed`);
+          progress.update(1, '❌ Failed');
           console.error(`   ❌ ${errorInfo.userMessage}`);
         }
 

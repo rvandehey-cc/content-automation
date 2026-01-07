@@ -7,7 +7,7 @@
 import fetch from 'node-fetch';
 import config from '../config/index.js';
 import { ImageDownloadError, handleError, retry, ProgressTracker } from '../utils/errors.js';
-import { readFile, readJSON, writeJSON, getFiles, ensureDir } from '../utils/filesystem.js';
+import { readFile, writeJSON, getFiles, ensureDir } from '../utils/filesystem.js';
 import { JSDOM } from 'jsdom';
 import path from 'path';
 import fs from 'fs-extra';
@@ -243,12 +243,12 @@ export class ImageDownloaderService {
           let decodedSrc = src;
           // Manual decode common HTML entities that might appear in URLs
           decodedSrc = decodedSrc.replace(/&amp;/g, '&')
-                                  .replace(/&lt;/g, '<')
-                                  .replace(/&gt;/g, '>')
-                                  .replace(/&quot;/g, '"')
-                                  .replace(/&#39;/g, "'")
-                                  .replace(/&#x27;/g, "'")
-                                  .replace(/&#x2F;/g, '/');
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, '\'')
+            .replace(/&#x27;/g, '\'')
+            .replace(/&#x2F;/g, '/');
           
           // Convert relative URLs to absolute
           let absoluteUrl = decodedSrc;
@@ -290,7 +290,7 @@ export class ImageDownloaderService {
               console.log(`   🚫 Filtered: ${src.substring(0, 60)}... - ${filterResult.reason}`);
             } else {
               // Remove element reference before adding to final array
-              const { element, ...cleanImageData } = imageData;
+              const { element: _element, ...cleanImageData } = imageData;
               images.push(cleanImageData);
               seenImages.add(normalizedUrl);
             }
@@ -311,12 +311,12 @@ export class ImageDownloaderService {
         
         // Decode HTML entities in malformed tags
         imageUrl = imageUrl.replace(/&amp;/g, '&')
-                          .replace(/&lt;/g, '<')
-                          .replace(/&gt;/g, '>')
-                          .replace(/&quot;/g, '"')
-                          .replace(/&#39;/g, "'")
-                          .replace(/&#x27;/g, "'")
-                          .replace(/&#x2F;/g, '/');
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, '\'')
+          .replace(/&#x27;/g, '\'')
+          .replace(/&#x2F;/g, '/');
         
         // Convert relative URLs to absolute
         let absoluteUrl = imageUrl;
@@ -386,12 +386,12 @@ export class ImageDownloaderService {
           
           // Decode HTML entities in background image URLs
           bgUrl = bgUrl.replace(/&amp;/g, '&')
-                      .replace(/&lt;/g, '<')
-                      .replace(/&gt;/g, '>')
-                      .replace(/&quot;/g, '"')
-                      .replace(/&#39;/g, "'")
-                      .replace(/&#x27;/g, "'")
-                      .replace(/&#x2F;/g, '/');
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, '\'')
+            .replace(/&#x27;/g, '\'')
+            .replace(/&#x2F;/g, '/');
           
           // Make relative URLs absolute if needed
           if (bgUrl.startsWith('/')) {
@@ -431,7 +431,7 @@ export class ImageDownloaderService {
             console.log(`   🚫 Filtered BG: ${bgUrl.substring(0, 60)}... - ${filterResult.reason}`);
           } else {
             // Remove element reference before adding to final array
-            const { element, ...cleanImageData } = imageData;
+            const { element: _element2, ...cleanImageData } = imageData;
             images.push(cleanImageData);
             seenImages.add(normalizedUrl);
             bgImagesFound++;
@@ -545,12 +545,12 @@ export class ImageDownloaderService {
       // Ensure URL is properly formatted (decode any remaining HTML entities)
       let downloadUrl = imageInfo.url;
       downloadUrl = downloadUrl.replace(/&amp;/g, '&')
-                               .replace(/&lt;/g, '<')
-                               .replace(/&gt;/g, '>')
-                               .replace(/&quot;/g, '"')
-                               .replace(/&#39;/g, "'")
-                               .replace(/&#x27;/g, "'")
-                               .replace(/&#x2F;/g, '/');
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, '\'')
+        .replace(/&#x27;/g, '\'')
+        .replace(/&#x2F;/g, '/');
       
       // Extract base URL for referer header
       let refererUrl = downloadUrl;
@@ -682,7 +682,7 @@ export class ImageDownloaderService {
         }
       }
 
-      console.log(`\n📊 Image Summary:`);
+      console.log('\n📊 Image Summary:');
       console.log(`   Total found: ${allImages.length}`);
       console.log(`   Avatar/testimonial filtered: ${totalFiltered}`);
       console.log(`   Unique URLs: ${uniqueImages.length}`);
@@ -803,4 +803,3 @@ export class ImageDownloaderService {
     }
   }
 }
-

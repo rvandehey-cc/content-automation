@@ -1,0 +1,14 @@
+#!/bin/sh
+echo "🔍 Running pre-commit checks..."
+
+# Run linting (allow warnings, block on errors)
+npm run lint -- --max-warnings=-1
+LINT_EXIT=$?
+
+if [ $LINT_EXIT -ne 0 ]; then
+  echo "❌ Linting failed. Please fix the errors above before committing."
+  exit 1
+fi
+
+echo "✅ Pre-commit checks passed!"
+exit 0
