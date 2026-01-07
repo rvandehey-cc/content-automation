@@ -1,0 +1,29 @@
+#!/bin/sh
+
+
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$current_branch" = "main" ] || [ "$current_branch" = "dev" ]; then
+  echo "🛡️ Pushing to protected branch '$current_branch' - running validations..."
+  
+  echo "🧪 Running tests with coverage..."
+  if ! npm run test:coverage; then
+    echo "❌ Tests failed. Push blocked."
+    exit 1
+  fi
+  
+  echo "🧹 Running linting..."
+  if ! npm run lint; then
+    echo "❌ Linting failed. Push blocked."
+    exit 1
+  fi
+
+  echo "🧹 Running web linting..."
+  # if ! npm run lint:web; then
+  #   echo "❌ Web Linting failed. Push blocked."
+  #   exit 1
+  # fi
+  echo "⚠️ Web linting skipped (configuration pending)"
+
+  echo "✅ All pre-push checks passed!"
+fi
