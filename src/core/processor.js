@@ -23,6 +23,7 @@ export class ContentProcessorService {
     // Store explicit content type from user selection (UI or CLI)
     // If user selects "page" or "post"/"blog", this should override detection
     this.explicitContentType = options.contentType || null;
+    this.contentType = this.explicitContentType || this.config.contentType || 'post';
   }
 
   /**

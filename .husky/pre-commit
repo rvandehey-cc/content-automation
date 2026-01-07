@@ -10,5 +10,15 @@ if [ $LINT_EXIT -ne 0 ]; then
   exit 1
 fi
 
+echo "🧪 Running unit tests..."
+# Run only unit tests, skip integration tests for speed
+npm run test -- --testPathIgnorePatterns=integration
+TEST_EXIT=$?
+
+if [ $TEST_EXIT -ne 0 ]; then
+  echo "❌ Tests failed. Please fix the failing tests before committing."
+  exit 1
+fi
+
 echo "✅ Pre-commit checks passed!"
 exit 0
