@@ -1,0 +1,94 @@
+# generated: 2026-01-07
+# project: wp-content-automation
+# project_key: wp-content-automation
+# tracking_system: file-system
+# story_location: _bmad-output/stories
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-01-07
+project: wp-content-automation
+project_key: wp-content-automation
+tracking_system: file-system
+story_location: _bmad-output/stories
+
+development_status:
+  # Epic 1: Local Development Quality Gates
+  epic-1: done
+  1-1-install-husky: done
+  1-2-configure-commitlint: done
+  1-3-precommit-linting: done
+  1-4-precommit-tests: done
+  epic-1-retrospective: optional
+
+  # Epic 2: Protected Branch Validation & Documentation Sync
+  epic-2: in-progress
+  2-1-prepush-hook: done
+  2-2-documentation-validation-script: review
+  2-3-integrate-docs-validation: review
+  2-4-emergency-bypass: review
+  epic-2-retrospective: optional
+
+  # Epic 3: Semantic Versioning & Changelog Automation
+  epic-3: in-progress
+  3-1-install-standard-version: review
+  3-2-version-config: review
+  3-3-npm-scripts-version: review
+  3-4-generate-changelog: review
+  epic-3-retrospective: optional
+
+  # Epic 4: Pull Request Validation & Preview
+  epic-4: in-progress
+  4-1-github-actions-pr-workflow: review
+  4-2-dependency-linting: ready-for-dev
+  4-3-test-coverage: backlog
+  4-4-commit-validation: backlog
+  4-5-changelog-preview: backlog
+  4-6-pr-comment: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Automated Release & Documentation Pipeline
+  epic-5: backlog
+  5-1-release-workflow: backlog
+  5-2-version-bump-changelog: backlog
+  5-3-docs-regeneration: backlog
+  5-4-commit-push: backlog
+  5-5-github-release: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: BMAD Workflow Integration & Status Tracking
+  epic-6: backlog
+  6-1-install-js-yaml: backlog
+  6-2-status-update-logic: backlog
+  6-3-post-commit-hook: backlog
+  6-4-update-prepush-tracking: backlog
+  6-5-release-tracking: backlog
+  6-6-gitignore-bmad: backlog
+  epic-6-retrospective: optional

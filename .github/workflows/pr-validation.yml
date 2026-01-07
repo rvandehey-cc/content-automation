@@ -1,0 +1,43 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  validate:
+    name: Validate PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full git history for commit analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint CLI Code
+        run: npm run lint
+
+      - name: Lint Web Code
+        run: npm run lint:web
+
+      # Future validation steps will be added in subsequent stories:
+      # Story 4.3: Test execution with coverage
+      # Story 4.4: Commit message validation
+      # Story 4.5: Changelog preview generation
+      # Story 4.6: PR comment with results
