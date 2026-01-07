@@ -79,5 +79,59 @@ describe('GitHub Actions Workflow Infrastructure', () => {
                 }
             });
         });
+
+        // Story 4.2: Linting Steps
+        describe('Linting Steps (Story 4.2)', () => {
+            test('workflow should include CLI linting step', () => {
+                expect(workflowConfig).toContain('Lint CLI Code');
+                expect(workflowConfig).toContain('npm run lint');
+            });
+
+            test('workflow should include web linting step', () => {
+                expect(workflowConfig).toContain('Lint Web Code');
+                expect(workflowConfig).toContain('npm run lint:web');
+            });
+
+            test('linting steps should run after dependency installation', () => {
+                const installIndex = workflowConfig.indexOf('npm ci');
+                const cliLintIndex = workflowConfig.indexOf('npm run lint');
+                const webLintIndex = workflowConfig.indexOf('npm run lint:web');
+
+                expect(installIndex).toBeGreaterThan(-1);
+                expect(cliLintIndex).toBeGreaterThan(installIndex);
+                expect(webLintIndex).toBeGreaterThan(cliLintIndex);
+            });
+
+            test('linting steps should fail workflow on errors (no continue-on-error)', () => {
+                // Check that continue-on-error is NOT set for linting steps
+                const lines = workflowConfig.split('\n');
+                let inLintStep = false;
+                let cliLintStepLines = [];
+                let webLintStepLines = [];
+
+                lines.forEach((line) => {
+                    if (line.includes('Lint CLI Code')) {
+                        inLintStep = 'cli';
+                    } else if (line.includes('Lint Web Code')) {
+                        inLintStep = 'web';
+                    } else if (line.match(/^\s{6}- name:/)) {
+                        inLintStep = false;
+                    }
+
+                    if (inLintStep === 'cli') {
+                        cliLintStepLines.push(line);
+                    } else if (inLintStep === 'web') {
+                        webLintStepLines.push(line);
+                    }
+                });
+
+                // Verify continue-on-error is not set (default is false)
+                const cliStepText = cliLintStepLines.join('\n');
+                const webStepText = webLintStepLines.join('\n');
+
+                expect(cliStepText).not.toContain('continue-on-error: true');
+                expect(webStepText).not.toContain('continue-on-error: true');
+            });
+        });
     });
 });
