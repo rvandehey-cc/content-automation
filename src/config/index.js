@@ -33,7 +33,8 @@ const DEFAULTS = {
     maxConcurrent: 5,
     timeout: 30000,
     retryAttempts: 2,
-    allowedFormats: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp'],
+    autoConvertAvif: true, // Convert AVIF to JPEG by default for WordPress compatibility
+    allowedFormats: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp', '.avif'],
     mappingFile: 'image-mapping.json'
   },
 
@@ -92,6 +93,7 @@ class Config {
         maxConcurrent: parseInt(process.env.IMAGES_MAX_CONCURRENT) || DEFAULTS.images.maxConcurrent,
         timeout: parseInt(process.env.IMAGES_TIMEOUT) || DEFAULTS.images.timeout,
         retryAttempts: parseInt(process.env.IMAGES_RETRY_ATTEMPTS) || DEFAULTS.images.retryAttempts,
+        autoConvertAvif: process.env.IMAGES_AUTO_CONVERT_AVIF !== 'false', // Default true for WordPress
         allowedFormats: DEFAULTS.images.allowedFormats,
         mappingFile: DEFAULTS.images.mappingFile
       },
