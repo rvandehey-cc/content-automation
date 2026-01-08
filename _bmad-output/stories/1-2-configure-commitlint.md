@@ -1,6 +1,6 @@
 # Story 1.2: Configure Commitlint for Conventional Commits
 
-**Status:** review
+**Status:** done
 
 ## Story
 As a developer, I want commit messages validated against conventional commit standards, so that all commits follow a consistent, parseable format for automation.
@@ -40,12 +40,19 @@ As a developer, I want commit messages validated against conventional commit sta
 ### Completion Notes
 - Installed @commitlint/cli and @commitlint/config-conventional
 - Created `.commitlintrc.json` with all required types and scopes
-- Created `.husky/commit-msg` hook that runs commitlint validation
-- Validated with test commits:
-  - ✅ Valid: `feat(core): test valid commit message` - passed
-  - ✅ Valid: `feat(bmm): test bmad scope` - passed (BMAD scope working)
-  - ❌ Invalid: `Invalid commit message` - blocked with clear error
-  - ❌ Invalid: `feat(invalid-scope): test` - blocked with scope error
+- Created `.husky/commit-msg` hook that runs commitlint validation and prints guidance on failure
+- Validated with commitlint CLI (equivalent rules used by hook):
+  - ✅ Valid: `feat(core): test commit` - passed
+  - ❌ Invalid: `Invalid commit message` - blocked with type/subject errors
+
+### Evidence
+- Commit: `6201ba1` (adds commitlint deps, config, and commit-msg hook).
+- Manual validation:
+  - `printf "feat(core): test commit\n" | npx commitlint` → exit 0
+  - `printf "Invalid commit message\n" | npx commitlint` → blocked with errors
+
+### Review Integration
+- Completion is committed and pushed; reviews should validate against git history (commit hash above).
 
 ## File List
 - .commitlintrc.json
@@ -57,3 +64,4 @@ As a developer, I want commit messages validated against conventional commit sta
 ## Change Log
 - 2026-01-06: Created story file.
 - 2026-01-06: Implemented and validated commitlint configuration.
+- 2026-01-06: Added evidence and review integration note.

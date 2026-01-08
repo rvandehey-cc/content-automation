@@ -1,6 +1,6 @@
 # Story 1.3: Create Pre-commit Hook for Linting
 
-**Status:** review
+**Status:** done
 
 ## Story
 As a developer, I want ESLint to run automatically before commits, so that code quality issues are caught immediately before they enter the repository.
@@ -28,8 +28,7 @@ As a developer, I want ESLint to run automatically before commits, so that code 
 - We replaced it with linting checks
 - ESLint was already configured in package.json but had no config file
 - Created `.eslintrc.json` with Node.js ES2021 settings
-- Auto-fixed 85 indentation/style issues with `npm run lint -- --fix`
-- Fixed 1 const reassignment error in `src/cli/automation.js`
+- Lint fixes and code adjustments were applied in commit `6201ba1` (see git history)
 - Warnings are allowed but errors block commits
 
 ## Dev Agent Record
@@ -43,16 +42,16 @@ As a developer, I want ESLint to run automatically before commits, so that code 
 ### Completion Notes
 - Created `.eslintrc.json` with Node.js ES2021 configuration
 - Updated `.husky/pre-commit` to run `npm run lint` with user feedback
-- Auto-fixed 85 style/indentation issues across codebase
-- Fixed const reassignment error (`imageMonth` in automation.js)
-- Standardized indentation to 2 spaces project-wide
-- Configured warnings to not block commits, only errors
-- **Fixed all 27 linting warnings:**
-  - Removed 5 unused import statements
-  - Fixed 4 unnecessary escape characters in regex patterns
-  - Prefixed 18 unused function parameters with underscore
-  - Configured ESLint to ignore vars/args starting with `_`
-- **Final result: 0 errors, 0 warnings** ✅
+- Configured warnings to not block commits, only errors (`--max-warnings=-1`)
+- Lint currently reports warnings in `src/lib/supabase/*` and `src/middleware.js` (semicolons)
+
+### Evidence
+- Commit: `6201ba1` (adds `.eslintrc.json`, lint hook, and lint-related code changes).
+- Lint pass (warnings only): `npx eslint 'src/**/*.js'` → exit 0 with 26 warnings.
+- Lint fail simulation: `npx eslint src/__lint_tmp__.js` on a temp file with `no-undef` → exit 1.
+
+### Review Integration
+- Completion is committed and pushed; reviews should validate against git history (commit hash above).
 
 ## File List
 - .husky/pre-commit
@@ -64,3 +63,4 @@ As a developer, I want ESLint to run automatically before commits, so that code 
 ## Change Log
 - 2026-01-06: Created story file.
 - 2026-01-06: Implemented linting hook, created ESLint config, standardized codebase.
+- 2026-01-06: Added evidence and review integration note.

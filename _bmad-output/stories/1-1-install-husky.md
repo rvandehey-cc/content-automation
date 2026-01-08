@@ -1,6 +1,6 @@
 # Story 1.1: Install and Configure Husky Git Hook Manager
 
-**Status:** review
+**Status:** done
 
 ## Story
 As a developer, I want Husky installed and initialized in the project, so that I can configure git hooks to run automatically on commit events.
@@ -9,7 +9,7 @@ As a developer, I want Husky installed and initialized in the project, so that I
 - [x] **Given** the project has a package.json file
 - [x] **When** I install Husky as a dev dependency and run `npx husky init`
 - [x] **Then** a `.husky/` directory is created in project root
-- [x] **And** a `prepare` script is added to package.json that runs `husky install`
+- [x] **And** a `prepare` script is added to package.json that runs `husky`
 - [x] **And** Husky hooks are activated when git commands are executed
 - [x] **And** the installation is documented in package.json devDependencies
 
@@ -18,8 +18,8 @@ As a developer, I want Husky installed and initialized in the project, so that I
 - [x] Verify `.husky` directory creation
 - [x] Verify `prepare` script in package.json
 - [x] Verify devDependency in package.json
-- [x] Create a dummy hook to test execution (optional, for validation)
-- [x] Clean up any dummy hooks
+- [ ] Create a dummy hook to test execution (optional, for validation)
+- [ ] Clean up any dummy hooks
 
 ## Dev Notes
 - Follow strict Red-Green-Refactor.
@@ -35,6 +35,12 @@ As a developer, I want Husky installed and initialized in the project, so that I
 - `.husky/` directory created with `pre-commit` hook.
 - `prepare` script validated in `package.json`.
 - `husky` added to `devDependencies` in `package.json`.
+- Verified hooks are active via `git config --get core.hooksPath` → `.husky/_`.
+- Optional dummy hook creation/cleanup not performed.
+
+### Evidence
+- Commit: `6201ba1` (adds husky, commitlint, prepare script, and initial hooks).
+- Hooks path: `git config --get core.hooksPath` → `.husky/_`.
 
 ## File List
 - package.json
@@ -46,3 +52,4 @@ As a developer, I want Husky installed and initialized in the project, so that I
 ## Change Log
 - 2026-01-06: Created story file.
 - 2026-01-06: Implemented story and marked as review.
+- 2026-01-06: Updated acceptance criteria wording and review evidence.
