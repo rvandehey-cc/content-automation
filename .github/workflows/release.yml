@@ -1,0 +1,141 @@
+name: Release & Documentation
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run Tests
+        run: npm run test:coverage
+
+      - name: Bump Version and Generate Changelog
+        id: version
+        run: npx standard-version --skip.commit --skip.tag
+
+      - name: Extract New Version
+        id: extract_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Regenerate Documentation
+        continue-on-error: true
+        run: npm run docs:generate
+
+      - name: Sync Documentation to Public Folder
+        continue-on-error: true
+        run: |
+          if [ -d "_bmad-output/docs" ]; then
+            mkdir -p docs
+            rsync -av --delete _bmad-output/docs/ docs/
+            echo "✅ Documentation synchronized from _bmad-output/docs/ to docs/"
+          else
+            echo "⚠️ No _bmad-output/docs/ directory found - skipping sync"
+          fi
+
+      - name: Commit and tag release
+        run: |
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore(release): v${{ steps.extract_version.outputs.version }} [skip ci]"
+            git tag -a v${{ steps.extract_version.outputs.version }} -m "Release v${{ steps.extract_version.outputs.version }}"
+          fi
+
+      - name: Push changes
+        run: git push origin main --follow-tags
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const version = '${{ steps.extract_version.outputs.version }}';
+
+            // Read and parse CHANGELOG.md
+            const changelog = fs.readFileSync('CHANGELOG.md', 'utf8');
+
+            // Extract release notes for this version
+            function extractReleaseNotes(changelog, version) {
+              const lines = changelog.split('\n');
+              const escapedVersion = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const versionHeader = new RegExp(`^##\\s+\\[?${escapedVersion}\\]?\\b`);
+              let startIndex = -1;
+              let endIndex = -1;
+
+              // Find the start of this version's section
+              for (let i = 0; i < lines.length; i++) {
+                if (versionHeader.test(lines[i])) {
+                  startIndex = i + 1;
+                  break;
+                }
+              }
+
+              if (startIndex === -1) {
+                return 'No changelog entries found for this version.';
+              }
+
+              // Find the end (next version header or end of file)
+              for (let i = startIndex; i < lines.length; i++) {
+                if (lines[i].startsWith('## ') && i > startIndex) {
+                  endIndex = i;
+                  break;
+                }
+              }
+
+              if (endIndex === -1) {
+                endIndex = lines.length;
+              }
+
+              return lines.slice(startIndex, endIndex).join('\n').trim();
+            }
+
+            const releaseNotes = extractReleaseNotes(changelog, version);
+
+            // Create the GitHub release
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `v${version}`,
+              name: `Release v${version}`,
+              body: releaseNotes,
+              draft: false,
+              prerelease: false
+            });
+
+      - name: Update BMM Workflow Status
+        continue-on-error: true
+        run: |
+          node .husky/scripts/update-workflow-status.js release_published "{\"version\":\"${{ steps.extract_version.outputs.version }}\"}" || echo "Status update skipped"
