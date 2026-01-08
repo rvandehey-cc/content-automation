@@ -19,11 +19,19 @@ if [ "$current_branch" = "main" ] || [ "$current_branch" = "dev" ]; then
   fi
 
   echo "🧹 Running web linting..."
-  # if ! npm run lint:web; then
-  #   echo "❌ Web Linting failed. Push blocked."
-  #   exit 1
-  # fi
-  echo "⚠️ Web linting skipped (configuration pending)"
+  if ! npm run lint:web; then
+    echo "❌ Web linting failed. Push blocked."
+    exit 1
+  fi
+
+  echo "📚 Validating documentation synchronization..."
+  if ! DOCS_SUPPRESS_HEADER=1 DOCS_BASE_REF="origin/$current_branch" node .husky/scripts/validate-docs.js; then
+    echo "❌ Documentation validation failed. Push blocked."
+    exit 1
+  fi
 
   echo "✅ All pre-push checks passed!"
+
+  # Track successful push validation in workflow status (Story 6.4)
+  node .husky/scripts/update-workflow-status.js pre_push_validated "{\"branch\":\"$current_branch\"}" || true
 fi
