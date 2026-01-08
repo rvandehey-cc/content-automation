@@ -1,7 +1,7 @@
 # Project Overview: wp-content-automation
 
 ## Executive Summary
-`wp-content-automation` (internally `headless-scraper`) is a sophisticated hybrid automation ecosystem. Originally a Node.js CLI tool, it has evolved into a comprehensive platform featuring a **Next.js Web Dashboard** for management and observability, and a **PostgreSQL (Supabase)** persistence layer for tracking site profiles and scraping runs.
+`wp-content-automation` (internally `wp-content-automationr`) is a sophisticated hybrid automation ecosystem. Originally a Node.js CLI tool, it has evolved into a comprehensive platform featuring a **Next.js Web Dashboard** for management and observability, and a **PostgreSQL (Supabase)** persistence layer for tracking site profiles and scraping runs.
 
 ## Core Objectives
 - **Robust Scraping**: Reliable content extraction from JS-heavy sites using Playwright.

@@ -1,8 +1,9 @@
 ---
 project_name: 'wp-content-automation'
 user_name: 'Ryanvandehey'
-date: '2026-01-06T14:24:00Z'
-sections_completed: ['technology_stack', 'architectural_patterns', 'implementation_rules']
+date: '2026-01-07T21:14:00Z'
+sections_completed: ['technology_stack', 'architectural_patterns', 'implementation_rules', 'naming_conventions', 'code_organization']
+critical_rules_count: 10
 existing_patterns_found: 12
 ---
 
@@ -50,6 +51,37 @@ When modifying the `ContentProcessorService`, follow the aggressive cleaning rul
 ### 4. Job Management (BullMQ)
 - **Naming**: Use descriptive job names (e.g., `scrape-dealer-xyz`).
 - **Retries**: Configure exponential backoff for all scraping jobs to handle network flakiness.
+
+### 5. Git Hooks (Husky)
+- **Hooks Path**: Keep `core.hooksPath` pointing to `.husky/_` and manage hooks in `.husky/`.
+- **Emergency Bypass**: Only use `--no-verify` for genuine emergencies (Story 2.4). Document all bypasses.
+
+### 6. Configuration Management (Singleton)
+- **NEVER instantiate config directly**: Always `import { config } from '@/config'`.
+- **Environment Override**: Use `.env.local` to override defaults. Never hardcode config values.
+- **Service Injection**: All services accept config via constructor `options` parameter.
+
+### 7. Error Handling & Retry Logic
+- **Custom Errors**: Use domain-specific error classes (`ScraperError`, `ProcessingError`, etc.).
+- **Retry Wrapper**: Wrap network calls in `retry()` utility with exponential backoff (from `src/utils/errors.js`).
+- **Circuit Breaker**: Retry stops after consecutive failures. Handle gracefully and continue pipeline.
+
+### 8. Naming Conventions (Strict)
+- **Database**: PascalCase tables (`SiteProfile`), camelCase columns (`dealerSlug`)
+- **API Routes**: Plural resources (`/api/profiles`), camelCase query params
+- **Components**: PascalCase files matching component names (`ProfileCard.tsx`)
+- **Variables**: camelCase for variables/functions, SCREAMING_SNAKE_CASE for constants
+
+### 9. Code Organization (Boundaries)
+- **New Services**: Add to `src/core/` (business logic only)
+- **New Utilities**: Add to `src/utils/` (pure functions, no external dependencies)
+- **New API Routes**: Add to `src/app/api/[resource]/route.ts`
+- **New Components**: Add to `src/components/` (`ui/` for shadcn, feature folders for business logic)
+
+### 10. Testing (Future - When Framework Ready)
+- **Co-located**: Place `*.test.js` files next to source files
+- **Coverage**: All new services require unit tests
+- **Naming**: Match source file name (`ProfileCard.test.tsx` for `ProfileCard.tsx`)
 
 ## 📂 Knowledge Mapping
 - **Overview**: `_bmad-output/project-overview.md`

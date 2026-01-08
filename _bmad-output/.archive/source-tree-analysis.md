@@ -3,7 +3,7 @@
 ## Project Directory Structure
 
 ```
-headless-scrape/
+wp-content-automation/
 ├── _bmad-output/                    # BMAD workflow outputs (documentation generation)
 │   ├── analysis/                    # Analysis artifacts
 │   ├── comprehensive-analysis.md    # Detailed project analysis

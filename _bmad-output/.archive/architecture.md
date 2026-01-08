@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-**headless-scrape** is a Node.js CLI application designed to automate web content scraping and preparation for WordPress import. The system uses a service-oriented layered architecture with clean separation of concerns, enabling modular development and easy maintenance.
+**wp-content-automation** is a Node.js CLI application designed to automate web content scraping and preparation for WordPress import. The system uses a service-oriented layered architecture with clean separation of concerns, enabling modular development and easy maintenance.
 
 **Primary Purpose**: Extract content from websites (primarily automotive dealership sites), download and organize images, sanitize HTML content, and generate WordPress-ready CSV files.
 

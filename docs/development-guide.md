@@ -77,6 +77,105 @@ https://example.com/blog/article-1 post
 - Use `src/utils/filesystem.js` for all I/O operations.
 - Wrap asynchronous calls in the `retry` utility from `src/utils/errors.js` if they involve network or volatile operations.
 
+## Emergency Bypass
+
+> **⚠️ CRITICAL WARNING:** The emergency bypass should **ONLY** be used in genuine emergency situations where immediate deployment is required. Bypassing quality gates removes all automated safety checks and can introduce bugs, security vulnerabilities, or breaking changes into the codebase.
+
+### When to Use Emergency Bypass
+
+**Acceptable scenarios:**
+- Critical production hotfix needed immediately
+- Server outage requiring emergency deployment
+- Security vulnerability requiring immediate patching
+- Situations where running full validation would cause more harm than bypassing it
+
+**NOT acceptable scenarios:**
+- "I don't have time to fix the tests"
+- "The linter is annoying"
+- "I'll fix it later"
+- Regular development workflow
+
+### How to Use `--no-verify`
+
+Git provides a built-in `--no-verify` flag that bypasses all git hooks:
+
+**Bypass commit hooks:**
+```bash
+git commit --no-verify -m "emergency: fix critical production bug"
+```
+
+**Bypass push hooks:**
+```bash
+git push --no-verify
+```
+
+**Bypass both (commit and push):**
+```bash
+git commit --no-verify -m "emergency: critical hotfix"
+git push --no-verify
+```
+
+### What Gets Bypassed
+
+When using `--no-verify`, only the hooks for that specific command are bypassed:
+
+**If you run `git commit --no-verify`:**
+- ❌ ESLint validation (pre-commit)
+- ❌ Unit tests (pre-commit)
+- ❌ Conventional commit message validation (commit-msg)
+
+**If you run `git push --no-verify`:**
+- ❌ Full test suite with coverage (pre-push)
+- ❌ Web linting (pre-push)
+- ❌ Documentation synchronization validation (pre-push)
+
+### Post-Bypass Actions
+
+After using emergency bypass, you **MUST**:
+
+1. **Document the bypass**: Add a note in the commit message or PR explaining why bypass was necessary
+2. **Create follow-up ticket**: Document technical debt created
+3. **Run validations manually**: Execute all skipped checks as soon as possible
+4. **Fix any issues**: Address problems found by manual validation
+5. **Update team**: Notify team of the emergency bypass
+
+### Example Emergency Workflow
+
+```bash
+# Emergency hotfix scenario
+git checkout main
+git checkout -b hotfix/critical-bug
+
+# Make emergency fix
+# ... edit files ...
+
+# Commit with bypass (document reason)
+git commit --no-verify -m "fix(core): emergency patch for security vulnerability CVE-2026-1234"
+
+# Push with bypass
+git push --no-verify
+
+# After emergency is resolved:
+# 1. Run full validation suite manually
+npm run lint
+npm run lint:web
+npm run test:coverage
+node .husky/scripts/validate-docs.js
+
+# 2. Fix any issues found
+# 3. Create follow-up PR for any necessary cleanup
+```
+
+### Alternative: Fix Issues Instead
+
+In most cases, the correct approach is to **fix the underlying issues** rather than bypass:
+
+- **Linting errors**: Fix the code quality issues
+- **Test failures**: Fix the broken tests or implementation
+- **Documentation**: Update docs to reflect architecture changes
+
+The time spent fixing issues properly is almost always worth it to maintain code quality.
+
 ## Troubleshooting
 - **Cloudflare Blocks**: If sites block headless access, try setting `SCRAPER_HEADLESS=false` to debug visually or update the `userAgent` in config.
 - **Missing Images**: Check `output/images/image-mapping.json` to verify if images were successfully detected and downloaded.

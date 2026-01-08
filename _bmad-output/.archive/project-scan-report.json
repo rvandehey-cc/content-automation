@@ -6,8 +6,8 @@
   },
   "mode": "initial_scan",
   "scan_level": "deep",
-  "project_root": "/Users/ryanvandehey/Desktop/content-automation/headless-scrape",
-  "output_folder": "/Users/ryanvandehey/Desktop/content-automation/headless-scrape/_bmad-output",
+  "project_root": "/Users/ryanvandehey/Desktop/content-automation/wp-content-automation",
+  "output_folder": "/Users/ryanvandehey/Desktop/content-automation/wp-content-automation/_bmad-output",
   "completed_steps": [
     {
       "step": "step_1",
@@ -88,7 +88,7 @@
         "part_id": "main",
         "project_type_id": "cli",
         "display_name": "CLI Tool",
-        "root_path": "/Users/ryanvandehey/Desktop/content-automation/headless-scrape"
+        "root_path": "/Users/ryanvandehey/Desktop/content-automation/wp-content-automation"
       }
     ]
   },

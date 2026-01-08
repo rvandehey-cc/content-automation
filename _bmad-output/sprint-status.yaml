@@ -49,46 +49,46 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: Protected Branch Validation & Documentation Sync
-  epic-2: in-progress
-  2-1-prepush-hook: in-progress
-  2-2-documentation-validation-script: review
-  2-3-integrate-docs-validation: in-progress
-  2-4-emergency-bypass: in-progress
+  epic-2: done
+  2-1-prepush-hook: done
+  2-2-documentation-validation-script: done
+  2-3-integrate-docs-validation: done
+  2-4-emergency-bypass: done
   epic-2-retrospective: optional
 
   # Epic 3: Semantic Versioning & Changelog Automation
-  epic-3: in-progress
-  3-1-install-standard-version: review
-  3-2-version-config: review
-  3-3-npm-scripts-version: review
-  3-4-generate-changelog: review
+  epic-3: done
+  3-1-install-standard-version: done
+  3-2-version-config: done
+  3-3-npm-scripts-version: done
+  3-4-generate-changelog: done
   epic-3-retrospective: optional
 
   # Epic 4: Pull Request Validation & Preview
-  epic-4: in-progress
-  4-1-github-actions-pr-workflow: review
-  4-2-dependency-linting: review
-  4-3-test-coverage: ready-for-dev
-  4-4-commit-validation: ready-for-dev
-  4-5-changelog-preview: ready-for-dev
-  4-6-pr-comment: ready-for-dev
+  epic-4: done
+  4-1-github-actions-pr-workflow: done
+  4-2-dependency-linting: done
+  4-3-test-coverage: done
+  4-4-commit-validation: done
+  4-5-changelog-preview: done
+  4-6-pr-comment: done
   epic-4-retrospective: optional
 
   # Epic 5: Automated Release & Documentation Pipeline
-  epic-5: in-progress
-  5-1-release-workflow: ready-for-dev
-  5-2-version-bump-changelog: ready-for-dev
-  5-3-docs-regeneration: ready-for-dev
-  5-4-commit-push: ready-for-dev
-  5-5-github-release: ready-for-dev
+  epic-5: done
+  5-1-release-workflow: done
+  5-2-version-bump-changelog: done
+  5-3-docs-regeneration: done
+  5-4-commit-push: done
+  5-5-github-release: done
   epic-5-retrospective: optional
 
   # Epic 6: BMAD Workflow Integration & Status Tracking
-  epic-6: in-progress
-  6-1-install-js-yaml: ready-for-dev
-  6-2-status-update-logic: ready-for-dev
-  6-3-post-commit-hook: ready-for-dev
-  6-4-update-prepush-tracking: ready-for-dev
-  6-5-release-tracking: ready-for-dev
-  6-6-gitignore-bmad: ready-for-dev
+  epic-6: done
+  6-1-install-js-yaml: done
+  6-2-status-update-logic: done
+  6-3-post-commit-hook: done
+  6-4-update-prepush-tracking: done
+  6-5-release-tracking: done
+  6-6-gitignore-bmad: done
   epic-6-retrospective: optional

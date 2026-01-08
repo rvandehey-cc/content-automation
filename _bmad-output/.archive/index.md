@@ -5,7 +5,7 @@
 - **Type**: Monolith CLI Tool
 - **Primary Language**: JavaScript (Node.js >=18.0.0)
 - **Architecture**: Service-Oriented Layered Architecture
-- **Project Name**: headless-scrape (content automation pipeline)
+- **Project Name**: wp-content-automation (content automation pipeline)
 
 ## Quick Reference
 
@@ -19,7 +19,7 @@
 ### Entry Point
 - **Main Script**: `src/cli/automation.js`
 - **Command**: `npm start`
-- **Root Path**: `/Users/ryanvandehey/Desktop/content-automation/headless-scrape`
+- **Root Path**: `/Users/ryanvandehey/Desktop/content-automation/wp-content-automation`
 
 ### Architecture Pattern
 Service-Oriented Layered Architecture with:
@@ -132,7 +132,7 @@ When working on this project:
 ## Project Structure Summary
 
 ```
-headless-scrape/
+wp-content-automation/
 ├── src/
 │   ├── cli/          # CLI interfaces (automation.js is main entry)
 │   ├── core/         # Business logic services

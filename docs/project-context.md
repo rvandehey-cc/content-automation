@@ -51,6 +51,9 @@ When modifying the `ContentProcessorService`, follow the aggressive cleaning rul
 - **Naming**: Use descriptive job names (e.g., `scrape-dealer-xyz`).
 - **Retries**: Configure exponential backoff for all scraping jobs to handle network flakiness.
 
+### 5. Git Hooks (Husky)
+- **Hooks Path**: Keep `core.hooksPath` pointing to `.husky/_` and manage hooks in `.husky/`.
+
 ## 📂 Knowledge Mapping
 - **Overview**: `_bmad-output/project-overview.md`
 - **Architecture**: `_bmad-output/architecture.md`

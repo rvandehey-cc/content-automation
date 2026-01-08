@@ -2,7 +2,7 @@
 
 ## Project Information
 
-- **Project Name**: headless-scrape (headless-scraper)
+- **Project Name**: wp-content-automation (wp-content-automationr)
 - **Version**: 2.0.0
 - **Type**: CLI Tool (Command-Line Interface)
 - **Repository Type**: Monolith (single cohesive codebase)

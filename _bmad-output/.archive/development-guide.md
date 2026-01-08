@@ -31,7 +31,7 @@ nvm use 24
 ### 1. Clone Repository
 ```bash
 git clone https://github.com/vande012/wp-content-automation
-cd headless-scrape
+cd wp-content-automation
 ```
 
 ### 2. Install Dependencies

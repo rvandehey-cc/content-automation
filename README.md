@@ -63,7 +63,7 @@ The Content Automation Pipeline provides:
 
 ```bash
 git clone https://github.com/vande012/wp-content-automation
-cd headless-scrape
+cd wp-content-automation
 ```
 
 2. **Install dependencies:**
@@ -357,7 +357,7 @@ The system uses Supabase Auth for secure multi-user access:
 
 ```bash
 git clone https://github.com/vande012/wp-content-automation
-cd headless-scrape
+cd wp-content-automation
 npm install
 npm run install-browsers
 ```
@@ -434,7 +434,7 @@ npm run test:coverage    # Generate coverage report
 ### Project Structure
 
 ```
-headless-scrape/
+wp-content-automation/
 ├── src/
 │   ├── app/                    # Next.js web dashboard
 │   │   ├── api/                # API routes
@@ -598,6 +598,16 @@ The system supports explicit content type selection:
 3. Make your changes with tests
 4. Update documentation
 5. Submit a pull request
+
+### Quality Gates
+
+This project uses automated git hooks to enforce code quality:
+
+- **Pre-commit**: Linting and unit tests run before each commit
+- **Pre-push**: Full test suite with coverage and documentation validation before pushing to main/dev
+- **Commit messages**: Conventional commit format is enforced
+
+**Emergency Bypass:** In genuine emergency situations (critical production hotfixes, security vulnerabilities), you can bypass git hooks using the `--no-verify` flag. See [docs/development-guide.md](./docs/development-guide.md#emergency-bypass) for detailed guidelines on when and how to use this capability responsibly.
 
 ### Testing Strategy
 

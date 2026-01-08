@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Post-commit Hook - Story 6.3: Post-commit Hook for Commit Tracking
+#
+# Purpose: Track commit events in BMM workflow status for automation visibility.
+# This hook runs after every successful commit and logs the commit event.
+#
+# Graceful Failure: Uses || true to ensure git operations complete even if
+# status tracking fails (NFR9: Graceful Degradation)
+
+# Extract commit message from the most recent commit (AC: 4)
+commit_message=$(git log -1 --pretty=%B)
+
+# Log commit event to BMM workflow status (AC: 5, 7)
+# Pass "commit_made" event with commit message metadata
+# Use || true to prevent commit failures if status update fails (AC: 6)
+node .husky/scripts/update-workflow-status.js "commit_made" "$commit_message" || true

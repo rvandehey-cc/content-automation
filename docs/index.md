@@ -5,7 +5,7 @@
 - **Type**: Hybrid CLI/Web Automation Ecosystem
 - **Primary Language**: JavaScript (Node.js >=18.0.0, Next.js 16)
 - **Architecture**: Hybrid Service-Oriented (CLI) + Management Dashboard (Web)
-- **Project Name**: wp-content-automation (headless-scraper)
+- **Project Name**: wp-content-automation (wp-content-automationr)
 
 ## Quick Reference
 

@@ -1,5 +1,5 @@
 // Prisma schema for Content Automation Dashboard
-// Generated for headless-scrape web dashboard
+// Generated for wp-content-automation web dashboard
 
 generator client {
   provider = "prisma-client-js"
