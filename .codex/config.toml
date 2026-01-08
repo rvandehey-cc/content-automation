@@ -1,4 +1,0 @@
-model = "gpt-5.2-codex"
-model_reasoning_effort = "medium"
-[projects."/Users/nathanhart/Desktop/projects/wp-content-automation"]
-trust_level = "trusted"

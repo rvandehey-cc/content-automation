@@ -18,3 +18,27 @@ data/custom-selectors.json
 /src/generated/prisma
 
 .next/
+
+# Test coverage reports (generated)
+coverage/
+*.lcov
+
+# BMAD temporary artifacts
+_bmad-output/.temp/
+_bmad-output/**/*.tmp
+
+# Environment files (sensitive)
+.env
+.env.local
+.env.*.local
+
+# AI assistant session files (local only)
+.codex/
+.claude/
+.gemini/
+
+# IDE and editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
