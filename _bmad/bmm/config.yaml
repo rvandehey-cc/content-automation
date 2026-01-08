@@ -3,7 +3,7 @@
 # Version: 6.0.0-alpha.19
 # Date: 2025-12-19T19:58:21.191Z
 
-project_name: headless-scrape
+project_name: wp-content-automation
 user_skill_level: intermediate
 planning_artifacts: "{project-root}/_bmad-output/project-planning-artifacts"
 implementation_artifacts: "{project-root}/_bmad-output/implementation-artifacts"

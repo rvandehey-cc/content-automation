@@ -7,7 +7,7 @@
 import fetch from 'node-fetch';
 import config from '../config/index.js';
 import { ImageDownloadError, handleError, retry, ProgressTracker } from '../utils/errors.js';
-import { readFile, readJSON, writeJSON, getFiles, ensureDir } from '../utils/filesystem.js';
+import { readFile, writeJSON, getFiles, ensureDir } from '../utils/filesystem.js';
 import { JSDOM } from 'jsdom';
 import path from 'path';
 import fs from 'fs-extra';
@@ -238,11 +238,23 @@ export class ImageDownloaderService {
         sources.forEach(src => {
           if (!src) return;
           
+          // Decode HTML entities (e.g., &amp; -> &)
+          // JSDOM should handle this automatically, but we'll ensure it's decoded
+          let decodedSrc = src;
+          // Manual decode common HTML entities that might appear in URLs
+          decodedSrc = decodedSrc.replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, '\'')
+            .replace(/&#x27;/g, '\'')
+            .replace(/&#x2F;/g, '/');
+          
           // Convert relative URLs to absolute
-          let absoluteUrl = src;
-          if (src.startsWith('/')) {
+          let absoluteUrl = decodedSrc;
+          if (decodedSrc.startsWith('/')) {
             if (baseDomain) {
-              absoluteUrl = `${baseDomain}${src}`;
+              absoluteUrl = `${baseDomain}${decodedSrc}`;
             } else {
               // Can't convert relative URL without base domain
               return;
@@ -278,7 +290,7 @@ export class ImageDownloaderService {
               console.log(`   🚫 Filtered: ${src.substring(0, 60)}... - ${filterResult.reason}`);
             } else {
               // Remove element reference before adding to final array
-              const { element, ...cleanImageData } = imageData;
+              const { element: _element, ...cleanImageData } = imageData;
               images.push(cleanImageData);
               seenImages.add(normalizedUrl);
             }
@@ -293,9 +305,18 @@ export class ImageDownloaderService {
       let match;
       
       while ((match = malformedImageRegex.exec(html)) !== null) {
-        const imageUrl = match[1];
+        let imageUrl = match[1];
         
         if (!imageUrl) continue;
+        
+        // Decode HTML entities in malformed tags
+        imageUrl = imageUrl.replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, '\'')
+          .replace(/&#x27;/g, '\'')
+          .replace(/&#x2F;/g, '/');
         
         // Convert relative URLs to absolute
         let absoluteUrl = imageUrl;
@@ -363,6 +384,15 @@ export class ImageDownloaderService {
         if (bgImageMatch && bgImageMatch[1]) {
           let bgUrl = bgImageMatch[1];
           
+          // Decode HTML entities in background image URLs
+          bgUrl = bgUrl.replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, '\'')
+            .replace(/&#x27;/g, '\'')
+            .replace(/&#x2F;/g, '/');
+          
           // Make relative URLs absolute if needed
           if (bgUrl.startsWith('/')) {
             if (baseDomain) {
@@ -401,7 +431,7 @@ export class ImageDownloaderService {
             console.log(`   🚫 Filtered BG: ${bgUrl.substring(0, 60)}... - ${filterResult.reason}`);
           } else {
             // Remove element reference before adding to final array
-            const { element, ...cleanImageData } = imageData;
+            const { element: _element2, ...cleanImageData } = imageData;
             images.push(cleanImageData);
             seenImages.add(normalizedUrl);
             bgImagesFound++;
@@ -512,17 +542,41 @@ export class ImageDownloaderService {
     const timeout = setTimeout(() => controller.abort(), this.config.timeout);
     
     try {
-      const response = await fetch(imageInfo.url, {
+      // Ensure URL is properly formatted (decode any remaining HTML entities)
+      let downloadUrl = imageInfo.url;
+      downloadUrl = downloadUrl.replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, '\'')
+        .replace(/&#x27;/g, '\'')
+        .replace(/&#x2F;/g, '/');
+      
+      // Extract base URL for referer header
+      let refererUrl = downloadUrl;
+      try {
+        const urlObj = new URL(downloadUrl);
+        refererUrl = `${urlObj.protocol}//${urlObj.host}`;
+      } catch (e) {
+        // If URL parsing fails, use the original URL
+      }
+      
+      const response = await fetch(downloadUrl, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
-        }
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': refererUrl, // Add referer from same domain for dynamic image URLs
+          'Cache-Control': 'no-cache'
+        },
+        redirect: 'follow' // Follow redirects for dynamic image URLs
       });
       
       clearTimeout(timeout);
       
       if (!response.ok) {
-        throw new ImageDownloadError(`HTTP ${response.status}: ${response.statusText}`, imageInfo.url);
+        throw new ImageDownloadError(`HTTP ${response.status}: ${response.statusText}`, downloadUrl);
       }
       
       // Check if we need to correct the file extension based on content type
@@ -543,6 +597,20 @@ export class ImageDownloaderService {
       
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
+      
+      // Check if the downloaded file is actually empty or too small
+      if (buffer.length === 0) {
+        throw new ImageDownloadError('Downloaded file is empty (0 bytes)', downloadUrl);
+      }
+      
+      // Warn if file is suspiciously small (might be an error page)
+      if (buffer.length < 100) {
+        const textContent = buffer.toString('utf-8', 0, Math.min(200, buffer.length));
+        if (textContent.includes('error') || textContent.includes('Error') || textContent.includes('404') || textContent.includes('<html')) {
+          throw new ImageDownloadError(`Downloaded file appears to be an error page (${buffer.length} bytes)`, downloadUrl);
+        }
+      }
+      
       await fs.writeFile(finalOutputPath, buffer);
       
       return {
@@ -614,7 +682,7 @@ export class ImageDownloaderService {
         }
       }
 
-      console.log(`\n📊 Image Summary:`);
+      console.log('\n📊 Image Summary:');
       console.log(`   Total found: ${allImages.length}`);
       console.log(`   Avatar/testimonial filtered: ${totalFiltered}`);
       console.log(`   Unique URLs: ${uniqueImages.length}`);
@@ -735,4 +803,3 @@ export class ImageDownloaderService {
     }
   }
 }
-

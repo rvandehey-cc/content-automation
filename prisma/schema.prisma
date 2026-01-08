@@ -1,0 +1,119 @@
+// Prisma schema for Content Automation Dashboard
+// Generated for wp-content-automation web dashboard
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Site configuration profiles
+model SiteProfile {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  config      Json     // Full configuration object stored as JSON
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamp(6)
+  createdBy   String?  @map("created_by") @db.VarChar(255)
+  
+  // Relations
+  runs        Run[]
+  
+  @@map("site_profiles")
+  @@index([createdAt])
+  @@index([createdBy])
+}
+
+// Run/job tracking
+model Run {
+  id              String   @id @default(uuid()) @db.Uuid
+  siteProfileId   String?  @map("site_profile_id") @db.Uuid
+  status          String   @db.VarChar(50) // pending, running, completed, failed, cancelled
+  urls            Json     // Array of URLs to scrape
+  startedAt       DateTime? @map("started_at") @db.Timestamp(6)
+  completedAt     DateTime? @map("completed_at") @db.Timestamp(6)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  createdBy       String?  @map("created_by") @db.VarChar(255)
+  configSnapshot  Json?    @map("config_snapshot") // Configuration at time of run
+  
+  // Relations
+  siteProfile     SiteProfile? @relation(fields: [siteProfileId], references: [id], onDelete: SetNull)
+  metrics         RunMetrics?
+  logEntries      LogEntry[]
+  contentPreviews ContentPreview[]
+  
+  @@map("runs")
+  @@index([status])
+  @@index([siteProfileId])
+  @@index([createdAt])
+  @@index([startedAt])
+}
+
+// Run metrics
+model RunMetrics {
+  id                String   @id @default(uuid()) @db.Uuid
+  runId             String   @unique @map("run_id") @db.Uuid
+  urlsScraped       Int      @default(0) @map("urls_scraped")
+  urlsFailed        Int      @default(0) @map("urls_failed")
+  imagesDownloaded  Int      @default(0) @map("images_downloaded")
+  imagesFailed      Int      @default(0) @map("images_failed")
+  filesProcessed    Int      @default(0) @map("files_processed")
+  filesFailed       Int      @default(0) @map("files_failed")
+  postsDetected     Int      @default(0) @map("posts_detected")
+  pagesDetected     Int      @default(0) @map("pages_detected")
+  totalDurationMs   Int      @default(0) @map("total_duration_ms")
+  errorCount        Int      @default(0) @map("error_count")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  
+  // Relations
+  run               Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  
+  @@map("run_metrics")
+  @@index([runId])
+  @@index([createdAt])
+}
+
+// Structured log entries
+model LogEntry {
+  id        String   @id @default(uuid()) @db.Uuid
+  runId     String?  @map("run_id") @db.Uuid
+  level     String   @db.VarChar(20) // error, warn, info, debug
+  service   String   @db.VarChar(50) // scraper, processor, csv, image
+  message   String   @db.Text
+  context   Json?    // Additional structured data
+  timestamp DateTime @default(now()) @db.Timestamp(6)
+  
+  // Relations
+  run       Run?     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  
+  @@map("log_entries")
+  @@index([runId])
+  @@index([level])
+  @@index([service])
+  @@index([timestamp])
+  @@index([runId, timestamp])
+}
+
+// Content preview storage
+model ContentPreview {
+  id            String   @id @default(uuid()) @db.Uuid
+  runId         String   @map("run_id") @db.Uuid
+  url           String   @db.VarChar(2048)
+  scrapedHtml   String?  @db.Text @map("scraped_html")
+  processedHtml String?  @db.Text @map("processed_html")
+  contentType   String?  @map("content_type") @db.VarChar(50) // post, page
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  
+  // Relations
+  run           Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  
+  @@map("content_previews")
+  @@index([runId])
+  @@index([url])
+  @@index([contentType])
+  @@index([createdAt])
+}

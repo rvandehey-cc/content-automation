@@ -106,26 +106,26 @@ export function handleError(error, context = {}) {
  */
 function getUserFriendlyMessage(error) {
   switch (error.name) {
-    case 'ScraperError':
-      if (error.message.includes('timeout')) {
-        return 'The website took too long to respond. Try again or check your internet connection.';
-      }
-      if (error.message.includes('404')) {
-        return 'The page could not be found. Please check the URL.';
-      }
-      return 'Failed to scrape the website. Please check the URL and try again.';
+  case 'ScraperError':
+    if (error.message.includes('timeout')) {
+      return 'The website took too long to respond. Try again or check your internet connection.';
+    }
+    if (error.message.includes('404')) {
+      return 'The page could not be found. Please check the URL.';
+    }
+    return 'Failed to scrape the website. Please check the URL and try again.';
 
-    case 'ImageDownloadError':
-      return `Failed to download image${error.url ? ` from ${error.url}` : ''}. The image may no longer exist or be accessible.`;
+  case 'ImageDownloadError':
+    return `Failed to download image${error.url ? ` from ${error.url}` : ''}. The image may no longer exist or be accessible.`;
 
-    case 'ProcessingError':
-      return `Failed to process content${error.filename ? ` for ${error.filename}` : ''}. Please check the HTML content.`;
+  case 'ProcessingError':
+    return `Failed to process content${error.filename ? ` for ${error.filename}` : ''}. Please check the HTML content.`;
 
-    case 'CSVGenerationError':
-      return 'Failed to generate WordPress CSV file. Please check the processed content.';
+  case 'CSVGenerationError':
+    return 'Failed to generate WordPress CSV file. Please check the processed content.';
 
-    default:
-      return 'An unexpected error occurred. Please check the logs for more details.';
+  default:
+    return 'An unexpected error occurred. Please check the logs for more details.';
   }
 }
 

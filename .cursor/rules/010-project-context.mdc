@@ -81,7 +81,7 @@ This is a **headless web scraping and content automation system** designed to ex
 ## 📁 Key File Structure
 
 ```
-headless-scrape/
+wp-content-automation/
 ├── src/
 │   ├── cli/automation.js          # Main pipeline orchestrator
 │   ├── core/                      # Business logic services

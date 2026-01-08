@@ -8,8 +8,8 @@ import fs from 'fs-extra';
 import path from 'path';
 import { JSDOM } from 'jsdom';
 import config from '../config/index.js';
-import { CSVGenerationError, handleError, ProgressTracker } from '../utils/errors.js';
-import { readJSON, writeJSON, getFiles, ensureDir, exists } from '../utils/filesystem.js';
+import { CSVGenerationError, ProgressTracker } from '../utils/errors.js';
+import { writeJSON, getFiles, ensureDir, exists } from '../utils/filesystem.js';
 
 /**
  * WordPress CSV Generator Service
@@ -18,12 +18,17 @@ import { readJSON, writeJSON, getFiles, ensureDir, exists } from '../utils/files
 export class CSVGeneratorService {
   constructor(options = {}) {
     this.config = { ...config.get('csv'), ...options };
+    // Store explicit content type from user selection (UI or CLI)
+    // If user selects "page" or "post"/"blog", this should override detection
+    this.explicitContentType = options.contentType || null;
+    this.contentType = this.explicitContentType || this.config.contentType || 'post';
+    this.blogPostSelectors = options.blogPostSelectors || this.config.blogPostSelectors || null;
   }
 
   // Constants for reuse
   static MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 
-                   'july', 'august', 'september', 'october', 'november', 'december',
-                   'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    'july', 'august', 'september', 'october', 'november', 'december',
+    'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
   
   static FOLDER_PREFIXES = ['blog', 'blogs', 'post', 'posts', 'page', 'pages', 'article', 'articles'];
   
@@ -524,7 +529,7 @@ export class CSVGeneratorService {
         // Helper function to convert plain class names to CSS selectors
         const normalizeSelector = (selector) => {
           if (!selector) return selector;
-          if (!/^[.#\[]/.test(selector) && !/[\s>+~\[]/.test(selector)) {
+          if (!/^[.#[]/.test(selector) && !/[\s>+~[]/.test(selector)) {
             return `.${selector}`;
           }
           return selector;
@@ -575,12 +580,12 @@ export class CSVGeneratorService {
         // Handle fallback logic
         if (customSelectors.post && !customSelectors.page) {
           console.log(`   📄 Post class '${customSelectors.post}' not found in ${filename}, defaulting to page`);
-          return { type: 'page', confidence: 80, reason: `Post class not found, defaulting to page` };
+          return { type: 'page', confidence: 80, reason: 'Post class not found, defaulting to page' };
         }
 
         if (customSelectors.page && !customSelectors.post) {
           console.log(`   📝 Page class '${customSelectors.page}' not found in ${filename}, defaulting to post`);
-          return { type: 'post', confidence: 80, reason: `Page class not found, defaulting to post` };
+          return { type: 'post', confidence: 80, reason: 'Page class not found, defaulting to post' };
         }
 
         if (customSelectors.post && customSelectors.page) {
@@ -682,6 +687,7 @@ export class CSVGeneratorService {
       }
       
       // Remove tag sections (e.g., "Tags<span>:</span> <a href=...")
+      // IMPORTANT: Only remove small tag-only containers, not large content containers
       // Look for elements containing tag links with rel="tag" or href containing "/tag"
       const allElements = Array.from(body.querySelectorAll('*'));
       const elementsToRemove = [];
@@ -689,6 +695,15 @@ export class CSVGeneratorService {
       allElements.forEach(element => {
         const textContent = element.textContent?.trim() || '';
         const innerHTML = element.innerHTML || '';
+        const tagName = element.tagName?.toLowerCase();
+        
+        // Skip large containers (article, main content divs) - they contain both content AND tags
+        // Only target small, tag-specific containers
+        if (tagName === 'article' || 
+            tagName === 'main' || 
+            textContent.length > 500) {
+          return; // Skip large content containers
+        }
         
         // Check if element contains tag links
         const tagLinks = element.querySelectorAll('a[rel*="tag"], a[href*="/tag"], a[href*="tag"]');
@@ -702,8 +717,11 @@ export class CSVGeneratorService {
           const hasTagPattern = /Tags?\s*[:：]?\s*<a[^>]*rel=["']tag/i.test(innerHTML) ||
                                 /Tags?\s*<span[^>]*>[:：]<\/span>\s*<a[^>]*rel=["']tag/i.test(innerHTML);
           
-          // Remove if it's clearly a tag section
-          if (startsWithTag || hasTagPattern) {
+          // Only remove if it's clearly a tag-only section (small container, starts with "Tag")
+          // AND doesn't contain substantial content (paragraphs, headings, etc.)
+          const hasSubstantialContent = element.querySelectorAll('p, h1, h2, h3, h4, h5, h6, img').length > 0;
+          
+          if ((startsWithTag || hasTagPattern) && !hasSubstantialContent) {
             elementsToRemove.push(element);
           }
         }
@@ -782,22 +800,15 @@ export class CSVGeneratorService {
    * Process single HTML file and extract data for CSV
    * @private
    * @param {string} filename - HTML filename
-   * @param {Object} contentTypeMappings - Content type mappings
-   * @param {Object} customSelectors - Custom CSS selectors
-   * @param {Object} urlMappings - URL mappings for URL-based detection
    * @returns {Promise<Object>} Processed item data
    */
-  async _processHtmlFile(filename, contentTypeMappings, customSelectors, urlMappings = {}) {
+  async _processHtmlFile(filename) {
     const scrapedPath = path.join(config.resolvePath('output/scraped-content'), filename);
     const cleanPath = path.join(config.resolvePath('output/clean-content'), filename);
     
     try {
-      // Read original scraped HTML for content type detection (has article-header class)
+      // Read original scraped HTML for title and date extraction
       const originalHtml = await fs.readFile(scrapedPath, 'utf-8');
-      
-      // IMPORTANT: Detect content type using original scraped HTML
-      // This must happen before sanitization removes the custom classes
-      const contentType = this._detectContentType(originalHtml, filename, contentTypeMappings, customSelectors, urlMappings);
       
       // Extract title from original scraped HTML (H1 is the primary source)
       // The H1 tag from output/scraped-content/ is used as the post/page title
@@ -810,11 +821,11 @@ export class CSVGeneratorService {
       let processedHtml;
       try {
         processedHtml = await fs.readFile(cleanPath, 'utf-8');
-        console.log(`   📄 Using processed HTML with updated links from clean-content/`);
+        console.log('   📄 Using processed HTML with updated links from clean-content/');
       } catch (error) {
         // Fallback to original if clean-content doesn't exist
         processedHtml = originalHtml;
-        console.log(`   ⚠️  clean-content not found, using original HTML`);
+        console.log('   ⚠️  clean-content not found, using original HTML');
       }
       
       // Clean content (preserve HTML formatting) - use processed HTML with updated links
@@ -823,30 +834,40 @@ export class CSVGeneratorService {
       // Extract excerpt (plain text)
       const excerpt = this._extractExcerpt(cleanContent);
       
-      // Try to extract article date from original HTML (before classes were removed)
-      const articleDate = this._extractArticleDate(originalHtml);
+      // Date handling: Posts keep original date, Pages use yesterday to avoid scheduling
+      let postDate;
       
-      // Use article date if found, otherwise use current date
-      const postDate = articleDate || new Date().toISOString().slice(0, 19).replace('T', ' ');
-      
-      // Log if we found an article date
-      if (articleDate) {
-        console.log(`   📅 Found article date: ${articleDate}`);
+      if (this.contentType === 'page') {
+        // For pages: Use yesterday's date to ensure immediate publication (avoid scheduling)
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        postDate = yesterday.toISOString().slice(0, 19).replace('T', ' ');
+        console.log(`   📅 Page date set to yesterday: ${postDate} (ensures immediate publication)`);
+      } else {
+        // For posts: Try to extract article date from original HTML (before classes were removed)
+        // Use blogPostSelectors if provided for posts
+        const articleDate = this._extractArticleDate(originalHtml);
+        
+        // Use article date if found, otherwise use current date
+        postDate = articleDate || new Date().toISOString().slice(0, 19).replace('T', ' ');
+        
+        // Log if we found an article date
+        if (articleDate) {
+          console.log(`   📅 Found article date: ${articleDate}`);
+        }
       }
       
       return {
         post_title: title,
         post_content: cleanContent,
-        post_type: contentType.type,
+        post_type: this.contentType,
         post_status: 'publish',
         post_date: postDate,
         post_name: slug,
         post_excerpt: excerpt,
-        post_category: contentType.type === 'post' ? 'Uncategorized' : '',
+        post_category: this.contentType === 'post' ? 'Uncategorized' : '',
         post_tags: '',
         filename: filename,
-        detection_confidence: contentType.confidence,
-        detection_reason: contentType.reason
       };
       
     } catch (error) {
@@ -873,7 +894,7 @@ export class CSVGeneratorService {
       const cleanExists = await exists(cleanDir);
       
       if (!cleanExists && !scrapedExists) {
-        throw new CSVGenerationError(`No content directories found. Run the scraper and processor first!`);
+        throw new CSVGenerationError('No content directories found. Run the scraper and processor first!');
       }
       
       // Prefer clean content over scraped content
@@ -894,41 +915,17 @@ export class CSVGeneratorService {
       }
 
       console.log(`📄 Found ${htmlFiles.length} HTML files to process`);
+      console.log(`📝 Content Type: ${this.contentType === 'post' ? 'Blog Posts' : 'Pages'}`);
 
-      // Load mappings and custom selectors
-      const dataConfig = config.get('data');
-      let contentTypeMappings = {};
-      
-      try {
-        const contentTypeFile = config.resolvePath(dataConfig.contentTypeMappings);
-        if (await exists(contentTypeFile)) {
-          contentTypeMappings = await readJSON(contentTypeFile, {});
-          console.log(`📋 Loaded ${Object.keys(contentTypeMappings).length} content type mappings`);
+      // Log blog post selectors if provided
+      if (this.contentType === 'post' && this.blogPostSelectors) {
+        console.log('🎯 Blog Post Selectors:');
+        if (this.blogPostSelectors.dateSelector) {
+          console.log(`   📅 Date selector: ${this.blogPostSelectors.dateSelector}`);
         }
-      } catch (error) {
-        console.log('📋 No content type mappings found - using automatic detection');
-      }
-
-      // Load custom selectors - always get fresh from config to ensure updates are seen
-      const customSelectors = config.get('csv').customSelectors;
-      if (customSelectors) {
-        console.log('🎯 Using custom selectors for content type detection');
-        console.log(`   📝 Post selector: ${customSelectors.post || 'none'}`);
-        console.log(`   📄 Page selector: ${customSelectors.page || 'none'}`);
-      } else {
-        console.log('📋 No custom selectors found - using automatic content detection');
-      }
-
-      // Load URL mappings for URL-based content type detection
-      let urlMappings = {};
-      try {
-        const urlMappingsFile = config.resolvePath(dataConfig.urlMappings);
-        if (await exists(urlMappingsFile)) {
-          urlMappings = await readJSON(urlMappingsFile, {});
-          console.log(`🔗 Loaded ${Object.keys(urlMappings).length} URL mappings for detection`);
+        if (this.blogPostSelectors.contentSelector) {
+          console.log(`   📄 Content selector: ${this.blogPostSelectors.contentSelector}`);
         }
-      } catch (error) {
-        console.log('📋 No URL mappings found - skipping URL-based detection');
       }
 
       // Process all HTML files
@@ -936,7 +933,7 @@ export class CSVGeneratorService {
       const progress = new ProgressTracker(htmlFiles.length, 'Processing HTML files');
       
       for (const filename of htmlFiles) {
-        const item = await this._processHtmlFile(filename, contentTypeMappings, customSelectors, urlMappings);
+        const item = await this._processHtmlFile(filename);
         items.push(item);
         progress.update(1, `${item.post_type}: ${item.post_title.substring(0, 30)}...`);
       }
@@ -998,8 +995,6 @@ export class CSVGeneratorService {
           filename: item.filename,
           title: item.post_title,
           type: item.post_type,
-          confidence: item.detection_confidence,
-          reason: item.detection_reason
         }))
       };
 
@@ -1015,7 +1010,7 @@ export class CSVGeneratorService {
       return summary;
 
     } catch (error) {
-        throw new CSVGenerationError('CSV generation failed', null, error);
+      throw new CSVGenerationError('CSV generation failed', null, error);
     }
   }
 }

@@ -8,7 +8,7 @@ import { chromium } from 'playwright';
 import fs from 'fs-extra';
 import config from '../config/index.js';
 import { ScraperError, handleError, retry, ProgressTracker } from '../utils/errors.js';
-import { readJSON, writeJSON, getFiles } from '../utils/filesystem.js';
+import { writeJSON, getFiles } from '../utils/filesystem.js';
 
 /**
  * HTML Scraper Service
@@ -18,6 +18,9 @@ export class HTMLScraperService {
   constructor(options = {}) {
     this.config = { ...config.get('scraper'), ...options };
     this.browser = null;
+    // Store content type and specific selector for prioritized extraction
+    this.contentType = options.contentType || null;
+    this.contentSelector = options.contentSelector || null;
   }
 
   /**
@@ -266,29 +269,196 @@ export class HTMLScraperService {
       let rawContent = null;
       let contentFound = false;
 
-      // Try multiple content selectors in order of preference (most specific first)
-      const contentSelectors = [
-        'article',              // Most specific - semantic HTML5 for articles
-        '.blog-post-detail',    // Dealer site specific - blog post container
-        '.post-content',        // Blog post specific
-        '.entry-content',       // WordPress specific
-        '.ddc-span8',          // DDC layout specific - main content area
-        '.ddc-content',        // DDC container
-        'main',                 // Semantic HTML5 main content
-        '.main-content',        // Common main content class
-        '#content',             // Generic content ID
-        '.content',             // Generic content class (may match footer on some sites)
-        'body'                  // Last resort fallback
-      ];
+      // Build content selector list with priority:
+      // 1. Type-specific selector (from blogPost.contentSelector or page.contentSelector) if provided
+      // 2. Custom selectors from site profile config (this.config.contentSelectors)
+      // 3. Default fallback selectors
+      const contentSelectors = [];
+      
+      // Priority 1: Use type-specific selector if provided
+      if (this.contentSelector) {
+        contentSelectors.push(this.contentSelector);
+        console.log(`   🎯 Using type-specific content selector: ${this.contentSelector}`);
+      }
+      
+      // Priority 2: Use custom selectors from config (site profile)
+      if (this.config.contentSelectors && Array.isArray(this.config.contentSelectors) && this.config.contentSelectors.length > 0) {
+        contentSelectors.push(...this.config.contentSelectors);
+        console.log(`   📋 Using ${this.config.contentSelectors.length} custom selector(s) from profile`);
+      }
+      
+      // Priority 3: Default fallback selectors
+      // SEPARATE LOGIC: Posts and Pages need different selector priorities
+      let defaultSelectors = [];
+      
+      // If we know the content type, prioritize accordingly
+      if (this.contentType === 'post') {
+        // POST SELECTORS: Prioritize blog post specific containers
+        defaultSelectors = [
+          '.blog-post-detail',    // HIGHEST PRIORITY: Dealer.com blog post container
+          '.entry-content',       // WordPress/blog entry content
+          'article',              // Semantic HTML5 article element
+          '.post-content',        // Blog post specific
+          '.ddc-span8',          // DDC layout - main content area (for posts)
+          '.ddc-content',        // DDC container
+          '.main-content',        // Common main content class
+          '#content',             // Generic content ID
+          '.content',             // Generic content class
+          'body'                  // Last resort fallback
+        ];
+      } else if (this.contentType === 'page') {
+        // PAGE SELECTORS: Prioritize page-specific containers
+        defaultSelectors = [
+          '.main',                // HIGHEST PRIORITY: Dealer.com main content class - contains ALL page content
+          'main',                 // Semantic HTML5 main element - captures everything
+          '#page-body',           // Dealer.com page body container (has all page content)
+          '.ddc-wrapper',         // Dealer.com wrapper that contains full page content
+          '.ddc-span8',          // DDC layout specific - main content area
+          '.ddc-content',        // DDC container
+          '.main-content',        // Common main content class
+          '#content',             // Generic content ID
+          // Dealer.com specific page selectors (before generic .content)
+          '.ddc-span8 .ddc-content',  // DDC nested content
+          '.ddc-row .ddc-span8',       // DDC row with span8
+          'main .ddc-content',         // Main with DDC content
+          '.content:not(.nav-fragment):not(.ajax-navigation-element)',  // Content excluding navigation
+          '.content',             // Generic content class (may match footer on some sites)
+          'body'                  // Last resort fallback
+        ];
+      } else {
+        // UNKNOWN TYPE: Use balanced selector list (try both post and page selectors)
+        defaultSelectors = [
+          '.blog-post-detail',    // Blog post container
+          '.entry-content',       // WordPress/blog entry content
+          'article',              // Semantic HTML5 article element
+          '.main',                // Dealer.com main content class
+          'main',                 // Semantic HTML5 main element
+          '#page-body',           // Dealer.com page body container
+          '.post-content',        // Blog post specific
+          '.ddc-wrapper',         // Dealer.com wrapper
+          '.ddc-span8',          // DDC layout specific - main content area
+          '.ddc-content',        // DDC container
+          '.main-content',        // Common main content class
+          '#content',             // Generic content ID
+          '.content:not(.nav-fragment):not(.ajax-navigation-element)',  // Content excluding navigation
+          '.content',             // Generic content class
+          'body'                  // Last resort fallback
+        ];
+      }
+      
+      contentSelectors.push(...defaultSelectors);
 
       for (const selector of contentSelectors) {
         try {
           const element = await page.$(selector);
           if (element) {
+            // CRITICAL: For trusted selectors, use immediately - no validation needed
+            // These should contain ALL content regardless of structure
+            const trustedSelectors = [
+              'main',                 // Semantic HTML5 main element
+              '.main',                // Dealer.com main content class (pages)
+              '.blog-post-detail',    // Dealer.com blog post container (posts)
+              '.entry-content',       // WordPress/blog entry content (posts)
+              'article',              // Semantic HTML5 article element (posts)
+              '#page-body'            // Dealer.com page body container (pages)
+            ];
+            
+            if (trustedSelectors.includes(selector)) {
+              rawContent = await element.innerHTML();
+              if (rawContent && rawContent.trim().length > 0) {
+                const textLength = await element.evaluate(el => el.textContent?.trim().length || 0);
+                const paragraphCount = await element.evaluate(el => el.querySelectorAll('p').length);
+                const headingCount = await element.evaluate(el => el.querySelectorAll('h1, h2, h3, h4, h5, h6').length);
+                contentFound = true;
+                console.log(`   📄 Content found using selector: ${selector} (${textLength} chars, ${paragraphCount} paragraphs, ${headingCount} headings) - using ALL content`);
+                break;
+              }
+            }
+            
+            // For other selectors, apply validation
+            const contentCheck = await element.evaluate(el => {
+              const tagName = el.tagName?.toLowerCase();
+              const className = (el.getAttribute('class') || '').toLowerCase();
+              const id = (el.getAttribute('id') || '').toLowerCase();
+              const textContent = el.textContent?.trim() || '';
+              
+              // Check if it's a nav/header/footer element
+              if (tagName === 'nav' || tagName === 'header' || tagName === 'footer') {
+                return { isValid: false, reason: 'nav/header/footer element' };
+              }
+              
+              // Check for navigation-related classes/ids
+              const navPatterns = /(nav|navigation|menu|header|footer|sidebar|topbar|bottombar|vcard|social-header|socialsm)/;
+              if (navPatterns.test(className) || navPatterns.test(id)) {
+                return { isValid: false, reason: 'navigation-related class/id' };
+              }
+              
+              // Check if it only contains navigation fragments or minimal content
+              const hasNavFragments = el.querySelector('.nav-fragment, .ajax-navigation-element, [data-fragment-id]');
+              if (hasNavFragments && textContent.length < 500) {
+                return { isValid: false, reason: 'navigation fragments only' };
+              }
+              
+              // Check if it's mostly phone numbers, addresses, or social links (header content)
+              const phonePattern = /\(\d{3}\)\s*\d{3}[-.]?\d{4}/g;
+              const phoneMatches = (textContent.match(phonePattern) || []).length;
+              const hasAddress = /^\d+\s+[A-Z\s]+(?:ST|STREET|AVE|AVENUE|DR|DRIVE|RD|ROAD|BLVD|BOULEVARD)/i.test(textContent);
+              const socialLinkCount = el.querySelectorAll('a[href*="facebook"], a[href*="instagram"], a[href*="tiktok"], a[href*="linkedin"]').length;
+              
+              // If it's mostly header content (phones, address, social) and has little other text, skip it
+              if ((phoneMatches >= 2 || hasAddress || socialLinkCount >= 2) && textContent.length < 300) {
+                return { isValid: false, reason: 'header content (phones/address/social)' };
+              }
+              
+              // Check for substantial text content (at least 500 chars for text-only content)
+              const hasSubstantialText = textContent.length > 500;
+              
+              // Check for multiple paragraphs or headings (indicates real content)
+              const paragraphCount = el.querySelectorAll('p').length;
+              const headingCount = el.querySelectorAll('h1, h2, h3, h4, h5, h6').length;
+              const hasContentStructure = paragraphCount >= 2 || headingCount >= 1;
+              
+              // Valid if it has BOTH substantial text AND proper content structure
+              // OR very substantial text (1000+ chars) even without structure
+              const isValid = (hasSubstantialText && hasContentStructure) || textContent.length > 1000;
+              
+              return {
+                isValid,
+                reason: isValid ? 'valid content' : 'insufficient content',
+                textLength: textContent.length,
+                paragraphCount,
+                headingCount
+              };
+            });
+            
+            if (!contentCheck.isValid) {
+              console.log(`   ⏭️  Skipping selector ${selector}: ${contentCheck.reason}`);
+              continue;
+            }
+            
             rawContent = await element.innerHTML();
+            
+            // Additional check: if content seems incomplete (too short), try to find a larger container
+            // This helps when a smaller container matches but doesn't have all content
             if (rawContent && rawContent.trim().length > 100) {
+              // For non-main selectors, verify we have substantial content
+              // If we got less than 2000 chars, it might be incomplete - but still use it if it's the best we have
+              if (selector !== 'main' && contentCheck.textLength < 2000) {
+                // Check if this seems like it might be incomplete by looking for common page structure
+                const hasMultipleSections = await element.evaluate(el => {
+                  const headings = el.querySelectorAll('h1, h2, h3, h4, h5, h6');
+                  return headings.length >= 2; // Multiple headings suggest multiple sections
+                });
+                
+                if (!hasMultipleSections && selector !== 'body') {
+                  console.log(`   ⚠️  Selector ${selector} may be incomplete (${contentCheck.textLength} chars, ${contentCheck.headingCount} headings) - continuing search...`);
+                  // Don't break, continue to find a better match
+                  continue;
+                }
+              }
+              
               contentFound = true;
-              console.log(`   📄 Content found using selector: ${selector}`);
+              console.log(`   📄 Content found using selector: ${selector} (${contentCheck.textLength} chars, ${contentCheck.paragraphCount} paragraphs, ${contentCheck.headingCount} headings)`);
               break;
             }
           }
@@ -376,7 +546,7 @@ export class HTMLScraperService {
         } catch (error) {
           const errorInfo = handleError(error, { url, index: i });
           errors.push(errorInfo);
-          progress.update(1, `❌ Failed`);
+          progress.update(1, '❌ Failed');
           console.error(`   ❌ ${errorInfo.userMessage}`);
         }
 

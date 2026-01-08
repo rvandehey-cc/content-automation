@@ -1,0 +1,8 @@
+#!/bin/sh
+echo "🔒 Validating commit message..."
+npx --no -- commitlint --edit "$1"
+RESULT=$?
+if [ $RESULT -ne 0 ]; then
+  echo "❌ Commit message invalid. Use Conventional Commits (e.g., feat(core): add xyz)."
+fi
+exit $RESULT

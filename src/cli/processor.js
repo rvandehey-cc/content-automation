@@ -6,7 +6,6 @@
  */
 
 import { ContentProcessorService } from '../core/processor.js';
-import config from '../config/index.js';
 import { handleError } from '../utils/errors.js';
 
 /**
@@ -48,4 +47,3 @@ async function main() {
 
 // Run main function
 main();
-
