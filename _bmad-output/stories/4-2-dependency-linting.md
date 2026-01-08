@@ -1,6 +1,6 @@
 # Story 4.2: Add Dependency Installation and Linting Steps
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -588,7 +588,6 @@ N/A - No blocking issues encountered during implementation
 - Tested both lint scripts locally - all passing
 - CLI linting: 0 errors, 0 warnings
 - Web linting: 0 errors, 774 warnings (warnings don't fail build)
-- Committed workflow changes with conventional commit message
 
 ✅ **Task 4: Failure Testing** (Completed 2026-01-07)
 - Added comprehensive test suite for linting steps
@@ -614,3 +613,12 @@ N/A - No blocking issues encountered during implementation
 
 - `.github/workflows/pr-validation.yml` - Added CLI and web linting steps
 - `tests/infrastructure/github-actions.test.js` - Added 4 new tests for linting steps validation
+
+### Review Corrections (Code Review)
+
+- **Claimed:** Tasks 1-4 completed.
+  **Actual:** Confirmed. Linting steps found in `.github/workflows/pr-validation.yml`. Tests found in `tests/infrastructure/github-actions.test.js`.
+  **Fix Applied:** Approved. Implementation matches requirements.
+- **Claimed:** Workflow changes were committed with a conventional commit message.
+  **Actual:** Commit evidence not available during this review.
+  **Fix Applied:** Removed commit claim from completion notes.
