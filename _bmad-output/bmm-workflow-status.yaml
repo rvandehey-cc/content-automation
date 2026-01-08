@@ -60,3 +60,6 @@ automation_events:
   - timestamp: '2026-01-08T01:14:34.567Z'
     event: commit_made
     message: 'chore(core): remove shelved image tools and archive reports'
+  - timestamp: '2026-01-08T01:18:04.329Z'
+    event: commit_made
+    message: 'chore(cleanup): finalize archive moves and update status'
