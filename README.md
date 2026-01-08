@@ -114,9 +114,6 @@ npm run db:migrate
 6. **Start services:**
 
 ```bash
-# Start Redis (if using Docker)
-npm run docker:up
-
 # Start Next.js development server
 npm run dev:web
 ```
@@ -413,11 +410,6 @@ npm run db:generate      # Generate Prisma Client
 npm run db:migrate       # Run migrations
 npm run db:studio        # Open Prisma Studio (database GUI)
 npm run db:migrate:reset # Reset database (development only)
-
-# Docker
-npm run docker:up        # Start Docker services
-npm run docker:down      # Stop Docker services
-npm run docker:logs      # View Docker logs
 
 # CLI (Legacy)
 npm start                # Run full automation pipeline
