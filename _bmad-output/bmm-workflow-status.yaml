@@ -78,3 +78,6 @@ automation_events:
   - timestamp: '2026-01-09T23:07:44.666Z'
     event: commit_made
     message: 'feat(ui): add wp bookmarklet button and tool section'
+  - timestamp: '2026-01-09T23:10:48.439Z'
+    event: commit_made
+    message: 'chore(config): relax commitlint scope rules'
