@@ -81,3 +81,6 @@ automation_events:
   - timestamp: '2026-01-09T23:10:48.439Z'
     event: commit_made
     message: 'chore(config): relax commitlint scope rules'
+  - timestamp: '2026-01-20T22:28:18.866Z'
+    event: commit_made
+    message: 'feat(core): implement dealer-based content-migration folder structure'
