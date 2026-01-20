@@ -67,6 +67,20 @@ export default function Home() {
             </Link>
           </CardContent>
         </Card>
+
+        <Card className="hover:shadow-md transition-shadow">
+          <CardHeader>
+            <CardTitle>Tools</CardTitle>
+            <CardDescription>Browser utilities and bookmarklets</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/tools">
+              <Button variant="outline" className="w-full" aria-label="View tools and utilities">
+                View Tools
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

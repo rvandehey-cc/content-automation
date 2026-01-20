@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, description, config } = body;
+    const { name, dealerSlug, description, config } = body;
 
     if (!name || !config) {
       return NextResponse.json(
@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
     const profile = await prisma.siteProfile.create({
       data: {
         name,
+        dealerSlug: dealerSlug || null,
         description: description || null,
         config,
         createdBy: user.email || null,

@@ -114,9 +114,6 @@ npm run db:migrate
 6. **Start services:**
 
 ```bash
-# Start Redis (if using Docker)
-npm run docker:up
-
 # Start Next.js development server
 npm run dev:web
 ```
@@ -216,10 +213,21 @@ Note: This is not always needed, but can be helpful if competitor site has eleme
 
 ### Output Files
 
-When a run completes, files are automatically organized:
+When a run completes, files are automatically organized by dealer:
 
-- **CSV Files**: `~/Desktop/Content-Migration/csv/{run-id}/wordpress-import-YYYY-MM-DD.csv`
-- **Images**: `~/Desktop/Content-Migration/images/{run-id}/`
+- **CSV Files**: `~/Desktop/Content-Migration/{dealer-slug}/csv/wordpress-import-YYYY-MM-DD.csv`
+- **Images**: `~/Desktop/Content-Migration/{dealer-slug}/images/YYYY-MM-DD/`
+
+The `dealer-slug` is:
+- **From Site Profile**: If configured in the site profile's "Dealer Slug" field
+- **Auto-detected**: Extracted from the website domain (e.g., `www.zimbricknissan.com` → `zimbricknissan`)
+- **Fallback**: Uses `unknown-dealer` if detection fails
+
+**Benefits of Dealer-Based Organization:**
+- Easily identify which dealer's content is in each folder
+- Multiple runs for the same dealer are organized together
+- CSV files include dates to prevent overwrites
+- Images are organized in dated subfolders for easy management
 
 You can also download CSV files directly from the run detail page.
 
@@ -413,11 +421,6 @@ npm run db:generate      # Generate Prisma Client
 npm run db:migrate       # Run migrations
 npm run db:studio        # Open Prisma Studio (database GUI)
 npm run db:migrate:reset # Reset database (development only)
-
-# Docker
-npm run docker:up        # Start Docker services
-npm run docker:down      # Stop Docker services
-npm run docker:logs      # View Docker logs
 
 # CLI (Legacy)
 npm start                # Run full automation pipeline

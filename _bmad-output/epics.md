@@ -642,3 +642,40 @@ So that temporary files don't clutter version control while preserving structure
 **And** the gitignore includes _bmad-output/**/*.tmp files
 **And** structured BMAD output (_bmad-output/docs/, _bmad-output/epics.md, etc.) is NOT ignored
 **And** the gitignore is documented and version-controlled (NFR10)
+
+---
+
+## Epic 7: Image Processing Improvements
+
+Image downloads are processed with WordPress-compatible filenames, metadata embedding, and format conversion to ensure all images can be uploaded without errors.
+
+### Story 7.1: Image Naming Convention Fix & Enhancement
+
+As a content automation operator,
+I want image filenames to use clean article slugs instead of full URL paths,
+So that WordPress media gallery uploads work correctly and filenames are human-readable.
+
+**Acceptance Criteria:**
+
+**Given** a scraped article URL like `www.zimbricknissan.com_blog_2025_december_30_your-guide-to-the-best-2026-nissan-suvs-for-madison-wi.htm.html`
+**When** images are downloaded
+**Then** filenames should be `{clean-slug}_{original-name}.{ext}` without `.htm`
+**And** the mapping should include `articleSlug`, `localFilename`, `originalUrl`, `sourceFile`, `size`, and `alt` fields
+**And** processed content should use the new clean filenames from the mapping
+**And** IPTC metadata should be embedded when exiftool is installed and alt text exists
+
+### Story 7.2: AVIF/AV1 Image Format Auto-Conversion for WordPress
+
+As a content automation operator,
+I want all downloaded AVIF/AV1 images automatically converted to JPEG format,
+So that images can be uploaded to WordPress which doesn't support AVIF format.
+
+**Acceptance Criteria:**
+
+**Given** an image download completes with `.avif` extension
+**When** the download process finishes
+**Then** the image should be automatically converted to JPEG format (`.jpg`)
+**And** the configuration option `autoConvertAvif` should control this behavior (default: true)
+**And** the original `.avif` file should be deleted after successful conversion
+**And** the mapping should reflect the `.jpg` extension and include `formatConverted` metadata
+**And** if ImageMagick is not installed, the system should warn and keep the original file

@@ -9,3 +9,4 @@ declare module '@/components/ui/card' {
   export const CardFooter: React.ComponentType<React.HTMLAttributes<HTMLDivElement> & { children?: React.ReactNode }>
 }
 
+

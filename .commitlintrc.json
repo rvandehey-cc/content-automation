@@ -18,25 +18,7 @@
         "revert"
       ]
     ],
-    "scope-enum": [
-      2,
-      "always",
-      [
-        "core",
-        "cli",
-        "web",
-        "db",
-        "docs",
-        "api",
-        "ui",
-        "config",
-        "deps",
-        "bmm",
-        "workflows",
-        "agents",
-        "automation"
-      ]
-    ],
+    "scope-enum": [0, "always", []],
     "subject-case": [2, "always", "lower-case"],
     "header-max-length": [2, "always", 100]
   }

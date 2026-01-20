@@ -14,6 +14,7 @@ datasource db {
 model SiteProfile {
   id          String   @id @default(uuid()) @db.Uuid
   name        String   @db.VarChar(255)
+  dealerSlug  String?  @map("dealer_slug") @db.VarChar(50)
   description String?  @db.Text
   config      Json     // Full configuration object stored as JSON
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)

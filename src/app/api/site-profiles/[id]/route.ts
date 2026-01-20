@@ -69,7 +69,7 @@ export async function PUT(
     const resolvedParams = params instanceof Promise ? await params : params;
     const { id } = resolvedParams;
     const body = await request.json();
-    const { name, description, config } = body;
+    const { name, dealerSlug, description, config } = body;
 
     // Check if profile exists
     const existing = await prisma.siteProfile.findUnique({
@@ -87,6 +87,7 @@ export async function PUT(
       where: { id },
       data: {
         ...(name && { name }),
+        ...(dealerSlug !== undefined && { dealerSlug }),
         ...(description !== undefined && { description }),
         ...(config && { config }),
       },

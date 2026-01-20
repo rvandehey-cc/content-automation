@@ -69,3 +69,4 @@ export async function generatePrismaClient() {
     throw error;
   }
 }
+

@@ -1,7 +1,7 @@
 /**
  * @fileoverview Image downloading service for scraped content
  * @author Ryan Vandehey
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 import fetch from 'node-fetch';
@@ -11,6 +11,10 @@ import { readFile, writeJSON, getFiles, ensureDir } from '../utils/filesystem.js
 import { JSDOM } from 'jsdom';
 import path from 'path';
 import fs from 'fs-extra';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 /**
  * Image Downloader Service
@@ -19,6 +23,206 @@ import fs from 'fs-extra';
 export class ImageDownloaderService {
   constructor(options = {}) {
     this.config = { ...config.get('images'), ...options };
+    this.exiftoolAvailable = null; // Cached availability check
+    this.imageMagickAvailable = null; // Cached ImageMagick availability check
+    this.imageMagickWarningShown = false; // Track if warning has been shown
+  }
+
+  /**
+   * Check if exiftool is available on the system
+   * @private
+   * @returns {Promise<boolean>} True if exiftool is installed and available
+   */
+  async _checkExiftoolAvailable() {
+    if (this.exiftoolAvailable !== null) {
+      return this.exiftoolAvailable;
+    }
+    
+    try {
+      await execAsync('exiftool -ver');
+      this.exiftoolAvailable = true;
+      console.log('   ✅ exiftool detected - metadata embedding enabled');
+      return true;
+    } catch (error) {
+      this.exiftoolAvailable = false;
+      console.warn('   ⚠️  exiftool not found - metadata embedding disabled (install with: brew install exiftool)');
+      return false;
+    }
+  }
+
+  /**
+   * Check if image is AVIF format based on filename extension or Content-Type
+   * @private
+   * @param {string} filename - Image filename
+   * @param {string} contentType - HTTP Content-Type header (optional)
+   * @returns {boolean} True if image is AVIF format
+   */
+  _isAvifFormat(filename, contentType = '') {
+    const ext = path.extname(filename).toLowerCase();
+    const contentTypeLower = contentType.toLowerCase();
+    return ext === '.avif' || contentTypeLower.includes('avif');
+  }
+
+  /**
+   * Check if ImageMagick convert command is available
+   * @private
+   * @returns {Promise<boolean>} True if ImageMagick is installed
+   */
+  async _checkImageMagickAvailable() {
+    if (this.imageMagickAvailable !== null) {
+      return this.imageMagickAvailable;
+    }
+    
+    try {
+      await execAsync('convert -version');
+      this.imageMagickAvailable = true;
+      console.log('   ✅ ImageMagick detected - AVIF conversion enabled');
+      return true;
+    } catch (error) {
+      this.imageMagickAvailable = false;
+      if (!this.imageMagickWarningShown) {
+        console.warn('   ⚠️  ImageMagick not found - AVIF images will not be converted');
+        console.warn('   💡 Install with: brew install imagemagick (macOS) or apt install imagemagick (Linux)');
+        this.imageMagickWarningShown = true;
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Extract clean article slug from source filename
+   * Removes domain, date patterns, and file extensions for WordPress-friendly naming
+   * @private
+   * @param {string} sourceFile - Source HTML filename (e.g., "www.zimbricknissan.com_blog_2025_december_30_your-guide-to-the-best-2026-nissan-suvs-for-madison-wi.htm.html")
+   * @returns {string} Clean article slug (e.g., "your-guide-to-the-best-2026-nissan-suvs-for-madison-wi")
+   */
+  _extractArticleSlug(sourceFile) {
+    let slug = sourceFile;
+    
+    // 1. Remove .html extension
+    slug = slug.replace(/\.html?$/i, '');
+    
+    // 2. Remove .htm that might be embedded
+    slug = slug.replace(/\.htm$/i, '');
+    
+    // 3. Split by underscore and find the article part
+    const parts = slug.split('_');
+    
+    // 4. Remove domain (first part with dots) and date parts
+    const datePatterns = /^(blog|20\d{2}|january|february|march|april|may|june|july|august|september|october|november|december|\d{1,2})$/i;
+    
+    const meaningful = parts.filter(part => 
+      !part.includes('.') && // not domain
+      !datePatterns.test(part) // not date
+    );
+    
+    // 5. Join remaining parts
+    slug = meaningful.join('-');
+    
+    // 6. Clean up: replace underscores with hyphens, remove double hyphens
+    slug = slug
+      .replace(/_/g, '-')
+      .replace(/--+/g, '-')
+      .replace(/[^a-z0-9-]/gi, '')
+      .toLowerCase()
+      .substring(0, 50);
+    
+    // 7. Remove leading/trailing hyphens
+    slug = slug.replace(/^-+|-+$/g, '');
+    
+    // 8. Fallback if empty or too short
+    if (!slug || slug.length < 3) {
+      // Use hash of original filename
+      slug = `img-${sourceFile.substring(0, 8).replace(/[^a-z0-9]/gi, '').toLowerCase()}`;
+    }
+    
+    return slug;
+  }
+
+  /**
+   * Convert AVIF image to JPEG for WordPress compatibility
+   * Standalone method that can be called independently of metadata embedding
+   * @private
+   * @param {string} filePath - Path to the AVIF image file
+   * @returns {Promise<{success: boolean, newFilename?: string, newPath?: string, error?: string}>}
+   */
+  async _convertAvifToJpeg(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    
+    // Skip non-AVIF files - not an error, just not applicable
+    if (ext !== '.avif') {
+      return { success: false, error: 'Not an AVIF file', skipped: true };
+    }
+    
+    // Check ImageMagick availability (uses cached result)
+    const available = await this._checkImageMagickAvailable();
+    if (!available) {
+      return { success: false, error: 'ImageMagick not available' };
+    }
+    
+    try {
+      const jpegPath = filePath.replace(/\.avif$/i, '.jpg');
+      const jpegFilename = path.basename(jpegPath);
+      
+      await execAsync(`convert "${filePath}" "${jpegPath}"`);
+      
+      // Remove original AVIF file after successful conversion
+      await fs.unlink(filePath);
+      
+      console.log(`   🔄 Converted AVIF → JPEG: ${jpegFilename}`);
+      
+      return {
+        success: true,
+        newFilename: jpegFilename,
+        newPath: jpegPath
+      };
+    } catch (error) {
+      console.warn(`   ⚠️  AVIF conversion failed: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Embed metadata (alt text) into image using exiftool
+   * Embeds as IPTC Caption, Headline, and XMP Description for WordPress compatibility
+   * NOTE: AVIF conversion is now handled in the main download flow, not here.
+   * @private
+   * @param {string} filePath - Path to the image file (should already be JPEG if converted)
+   * @param {string} altText - Alt text to embed as metadata
+   * @returns {Promise<boolean>} True if metadata was embedded successfully
+   */
+  async _embedMetadata(filePath, altText) {
+    if (!altText || altText.trim() === '') {
+      return false;
+    }
+    
+    // Check if exiftool is available
+    const available = await this._checkExiftoolAvailable();
+    if (!available) {
+      return false;
+    }
+    
+    try {
+      // Check if file is AVIF - warn if it hasn't been converted
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext === '.avif') {
+        console.warn(`   ⚠️  Skipping metadata for AVIF (exiftool doesn't support AVIF): ${path.basename(filePath)}`);
+        return false;
+      }
+      
+      // Escape single quotes for shell command
+      const safeAlt = altText.replace(/'/g, '\'\\\'\'');
+      
+      // Embed metadata as IPTC Caption, Headline, and XMP Description
+      const command = `exiftool -overwrite_original -iptc:Caption-Abstract='${safeAlt}' -iptc:Headline='${safeAlt}' -xmp:Description='${safeAlt}' "${filePath}"`;
+      await execAsync(command);
+      
+      return true;
+    } catch (error) {
+      // Graceful degradation - don't let metadata embedding break the pipeline
+      console.warn(`   ⚠️  Metadata embedding failed for ${path.basename(filePath)}: ${error.message}`);
+      return false;
+    }
   }
 
   /**
@@ -467,7 +671,9 @@ export class ImageDownloaderService {
   }
 
   /**
-   * Generate safe filename for downloaded image
+   * Generate safe filename for downloaded image using clean article slug
+   * Format: {articleSlug}_{originalImageName}{extension}
+   * When autoConvertAvif is enabled, AVIF files will get .jpg extension
    * @private
    * @param {string} imageUrl - Image URL
    * @param {string} sourceFile - Source HTML filename
@@ -485,8 +691,14 @@ export class ImageDownloaderService {
         extension = '.jpg';
       }
       
-      // Create base filename from source HTML file
-      const sourceBase = path.basename(sourceFile, '.html');
+      // If autoConvertAvif is enabled and this is an AVIF, use .jpg extension
+      // This ensures the filename matches the final converted file
+      if (extension === '.avif' && this.config.autoConvertAvif) {
+        extension = '.jpg';
+      }
+      
+      // Extract clean article slug instead of using full source filename
+      const articleSlug = this._extractArticleSlug(sourceFile);
       
       // Get image filename from URL
       let imageName = path.basename(pathname, path.extname(pathname));
@@ -494,13 +706,14 @@ export class ImageDownloaderService {
         imageName = `image_${imageIndex}`;
       }
       
-      // Clean filename
+      // Clean image name (preserve hash-like names for uniqueness)
       imageName = imageName
         .replace(/[^a-z0-9._-]/gi, '_')
         .replace(/_{2,}/g, '_')
         .substring(0, 50);
       
-      return `${sourceBase}_${imageName}${extension}`;
+      // Format: {articleSlug}_{originalImageName}{extension}
+      return `${articleSlug}_${imageName}${extension}`;
     } catch (error) {
       console.warn(`Invalid URL: ${imageUrl}`);
       return null;
@@ -520,6 +733,8 @@ export class ImageDownloaderService {
       'image/png': '.png',
       'image/gif': '.gif',
       'image/webp': '.webp',
+      'image/avif': '.avif',
+      'image/avif-sequence': '.avif',
       'image/svg+xml': '.svg',
       'image/bmp': '.bmp',
       'image/x-icon': '.ico',
@@ -705,12 +920,23 @@ export class ImageDownloaderService {
       const results = [];
       const errors = [];
       
+      // Check tool availability once before processing
+      await this._checkExiftoolAvailable();
+      if (this.config.autoConvertAvif) {
+        await this._checkImageMagickAvailable();
+      }
+      
       // Process in batches to control concurrency
       for (let i = 0; i < uniqueImages.length; i += this.config.maxConcurrent) {
         const batch = uniqueImages.slice(i, i + this.config.maxConcurrent);
         
         const batchPromises = batch.map(async (imageInfo) => {
           const filename = this._generateImageFilename(imageInfo.url, imageInfo.sourceFile, imageInfo.imageIndex);
+          const articleSlug = this._extractArticleSlug(imageInfo.sourceFile);
+          
+          // Track if this was an AVIF that will be converted
+          const originalExt = path.extname(new URL(imageInfo.url).pathname).toLowerCase();
+          const isAvifSource = originalExt === '.avif';
           
           if (!filename) {
             return { success: false, error: 'Invalid URL', url: imageInfo.url };
@@ -727,15 +953,73 @@ export class ImageDownloaderService {
               filename,
               size: stats.size,
               url: imageInfo.url,
-              skipped: true
+              skipped: true,
+              // Enhanced mapping fields
+              articleSlug,
+              sourceFile: imageInfo.sourceFile,
+              alt: imageInfo.alt || '',
+              // Format conversion tracking (file already converted in previous run)
+              formatConverted: isAvifSource && this.config.autoConvertAvif,
+              originalFormat: isAvifSource ? 'avif' : null
             };
           }
           
           try {
-            return await retry(
-              () => this._downloadImage(imageInfo, filename, outputPath),
+            // Determine if we need to download as AVIF then convert
+            // When autoConvertAvif is enabled, filename already has .jpg extension
+            // but we download to a temp .avif file first
+            let downloadFilename = filename;
+            let downloadPath = outputPath;
+            
+            if (isAvifSource && this.config.autoConvertAvif && this.imageMagickAvailable) {
+              // Download as .avif first, then convert
+              downloadFilename = filename.replace(/\.jpg$/, '.avif');
+              downloadPath = path.join(outputDir, downloadFilename);
+            }
+            
+            const downloadResult = await retry(
+              () => this._downloadImage(imageInfo, downloadFilename, downloadPath),
               this.config.retryAttempts
             );
+            
+            // Initialize format conversion tracking
+            downloadResult.formatConverted = false;
+            downloadResult.originalFormat = null;
+            
+            // AUTO-CONVERT AVIF to JPEG if enabled (Task 1: Main conversion flow)
+            // Check both filename extension AND Content-Type header (servers may serve AVIF with wrong URL extension)
+            if (downloadResult.success && this.config.autoConvertAvif) {
+              if (this._isAvifFormat(downloadResult.filename, downloadResult.contentType)) {
+                const avifPath = path.join(outputDir, downloadResult.filename);
+                const convertResult = await this._convertAvifToJpeg(avifPath);
+                
+                if (convertResult.success) {
+                  // Update result to reflect converted file
+                  downloadResult.filename = convertResult.newFilename;
+                  downloadResult.formatConverted = true;
+                  downloadResult.originalFormat = 'avif';
+                } else if (!convertResult.skipped) {
+                  // Conversion failed but ImageMagick should be available
+                  // Keep original AVIF - graceful degradation
+                  console.warn(`   ⚠️  Keeping original AVIF: ${downloadResult.filename}`);
+                }
+              }
+            }
+            
+            // Embed metadata if alt text exists (after successful download AND conversion)
+            if (downloadResult.success && imageInfo.alt) {
+              const finalPath = path.join(outputDir, downloadResult.filename);
+              const metadataEmbedded = await this._embedMetadata(finalPath, imageInfo.alt);
+              downloadResult.metadataEmbedded = metadataEmbedded;
+            }
+            
+            // Add enhanced mapping fields to result
+            return {
+              ...downloadResult,
+              articleSlug,
+              sourceFile: imageInfo.sourceFile,
+              alt: imageInfo.alt || ''
+            };
           } catch (error) {
             return handleError(error, { url: imageInfo.url });
           }
@@ -758,7 +1042,7 @@ export class ImageDownloaderService {
       const endTime = Date.now();
       const duration = ((endTime - startTime) / 1000).toFixed(1);
 
-      // Create image mapping file
+      // Create image mapping file with enhanced structure
       const mapping = {
         timestamp: new Date().toISOString(),
         totalImages: uniqueImages.length,
@@ -768,8 +1052,15 @@ export class ImageDownloaderService {
         images: results.map(result => ({
           originalUrl: result.url,
           localFilename: result.filename,
+          articleSlug: result.articleSlug || '',
+          sourceFile: result.sourceFile || '',
           size: result.size,
-          skipped: result.skipped || false
+          alt: result.alt || '',
+          skipped: result.skipped || false,
+          metadataEmbedded: result.metadataEmbedded || false,
+          // Format conversion tracking (AC 6)
+          formatConverted: result.formatConverted || false,
+          originalFormat: result.originalFormat || null
         })),
         errors: errors.map(error => ({
           url: error.url || 'unknown',
