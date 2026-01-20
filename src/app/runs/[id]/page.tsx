@@ -212,8 +212,24 @@ export default function RunDetailPage() {
         <Card className="mb-6 border-green-200 bg-green-50 dark:bg-green-950">
           <CardHeader>
             <CardTitle className="text-green-900 dark:text-green-100">✓ Run Completed Successfully</CardTitle>
+            {run.configSnapshot?.dealerSlug && (
+              <CardDescription className="text-green-800 dark:text-green-200">
+                Content organized by dealer: <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">{run.configSnapshot.dealerSlug}</code>
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
+            {run.configSnapshot?.contentMigrationBasePath && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
+                <p className="text-sm font-medium mb-1">Content-Migration Base Folder:</p>
+                <p className="text-sm text-muted-foreground">
+                  <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">{run.configSnapshot.contentMigrationBasePath}</code>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  All content for this dealer is organized in this folder
+                </p>
+              </div>
+            )}
             {csvFilePath && (
               <div>
                 <Button asChild>
@@ -222,10 +238,10 @@ export default function RunDetailPage() {
                   </a>
                 </Button>
                 <p className="text-sm text-muted-foreground mt-2">
-                  CSV has been saved to: <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">{run.configSnapshot?.contentMigrationCsvPath || 'Content-Migration/csv folder'}</code>
+                  CSV saved to: <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">{run.configSnapshot?.contentMigrationCsvPath || 'Content-Migration/csv folder'}</code>
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Original location: <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">output/wp-ready/wordpress-import.csv</code>
+                  Filename includes date to prevent overwrites from multiple runs
                 </p>
               </div>
             )}
@@ -233,10 +249,10 @@ export default function RunDetailPage() {
               <div>
                 <p className="text-sm font-medium mb-1">Images Location:</p>
                 <p className="text-sm text-muted-foreground">
-                  Images have been saved to: <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">{imagesPath}</code>
+                  Images saved to: <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">{imagesPath}</code>
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Original location: <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">output/images/</code>
+                  Images organized by date for easy management of multiple runs
                 </p>
               </div>
             )}
@@ -336,6 +352,14 @@ export default function RunDetailPage() {
                   )}
                 </span>
               </div>
+              {run.configSnapshot?.dealerSlug && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Dealer Slug:</span>
+                  <span>
+                    <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">{run.configSnapshot.dealerSlug}</code>
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Bypass Images:</span>
                 <span>{run.configSnapshot?.bypassImages ? 'Yes' : 'No'}</span>

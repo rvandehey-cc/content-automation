@@ -97,4 +97,5 @@ development_status:
   epic-7: in-progress
   7-1-image-naming-fix: done
   7-2-avif-format-conversion: done
+  7-3-file-output-naming-conventions: review
   epic-7-retrospective: optional

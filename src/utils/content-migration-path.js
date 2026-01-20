@@ -51,24 +51,84 @@ export function getContentMigrationPath() {
 }
 
 /**
- * Ensure Content-Migration folder structure exists
- * @param {string} runId - Run ID to create subfolder
+ * Extract dealer slug from URL domain
+ * @param {string} url - Full URL to extract dealer from
+ * @returns {string} Dealer slug
+ * @throws {Error} If URL is invalid or dealer slug cannot be extracted
+ * @example
+ * extractDealerSlug('https://www.zimbricknissan.com/blog/article') 
+ * // returns 'zimbricknissan'
+ */
+export function extractDealerSlug(url) {
+  try {
+    const urlObj = new URL(url);
+    let hostname = urlObj.hostname;
+
+    // Remove www. prefix
+    hostname = hostname.replace(/^www\./, '');
+
+    // Remove common TLDs
+    hostname = hostname.replace(/\.(com|net|org|io|co)$/, '');
+
+    // Handle subdomains - take the LAST part (main domain)
+    // e.g., blog.dealer → dealer, blog.internal.dealer → dealer
+    const parts = hostname.split('.');
+    hostname = parts[parts.length - 1];
+
+    // Clean and format
+    const slug = hostname
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/--+/g, '-')
+      .replace(/^-|-$/g, '')
+      .substring(0, 50);
+
+    if (!slug || slug.length < 2) {
+      throw new Error('Unable to extract meaningful dealer slug from URL');
+    }
+
+    return slug;
+  } catch (error) {
+    throw new Error(`Failed to extract dealer slug from URL: ${error.message}`);
+  }
+}
+
+/**
+ * Ensure Content-Migration folder structure exists with dealer-based organization
+ * @param {string} dealerSlug - Dealer identifier (e.g., 'zimbrick-nissan')
  * @returns {Promise<Object>} Object with paths for images and csv
  */
-export async function ensureContentMigrationFolders(runId) {
+export async function ensureContentMigrationFolders(dealerSlug) {
+  if (!dealerSlug) {
+    dealerSlug = 'unknown-dealer';
+    console.warn('⚠️  No dealer slug provided, using fallback: unknown-dealer');
+  }
+
+  // Clean and validate dealer slug
+  const cleanSlug = dealerSlug
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/--+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50);
+
   const basePath = getContentMigrationPath();
+  const dealerBase = path.join(basePath, cleanSlug);
+  
+  // Generate date string for image subfolder and CSV filename
+  const dateStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
   
   const paths = {
     base: basePath,
-    images: path.join(basePath, 'images'),
-    csv: path.join(basePath, 'csv'),
-    runImages: path.join(basePath, 'images', runId),
-    runCsv: path.join(basePath, 'csv', runId),
+    dealerBase: dealerBase,
+    csv: path.join(dealerBase, 'csv'),
+    images: path.join(dealerBase, 'images', dateStr), // Dated subfolder
+    csvFile: path.join(dealerBase, 'csv', `wordpress-import-${dateStr}.csv`),
   };
 
   // Create all necessary directories
-  await fs.ensureDir(paths.runImages);
-  await fs.ensureDir(paths.runCsv);
+  await fs.ensureDir(paths.csv);
+  await fs.ensureDir(paths.images);
 
   return paths;
 }

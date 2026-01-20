@@ -21,6 +21,7 @@ export default function EditSiteProfilePage() {
   
   // Basic info
   const [name, setName] = useState('')
+  const [dealerSlug, setDealerSlug] = useState('')
   const [description, setDescription] = useState('')
   const [provider, setProvider] = useState('')
   
@@ -67,6 +68,7 @@ export default function EditSiteProfilePage() {
       
       // Populate form fields
       setName(profile.name || '')
+      setDealerSlug(profile.dealerSlug || '')
       setDescription(profile.description || '')
       
       const config: SiteProfileConfig = profile.config || {}
@@ -189,6 +191,7 @@ export default function EditSiteProfilePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
+          dealerSlug: dealerSlug.trim() || null,
           description: description.trim() || null,
           config,
         }),
@@ -257,6 +260,28 @@ export default function EditSiteProfilePage() {
                 onChange={(e) => setName(e.target.value)}
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dealerSlug">Dealer Slug</Label>
+              <Input
+                id="dealerSlug"
+                placeholder="e.g., zimbrick-nissan, madison-ford"
+                value={dealerSlug}
+                onChange={(e) => {
+                  // Auto-format as kebab-case
+                  const formatted = e.target.value
+                    .toLowerCase()
+                    .replace(/[^a-z0-9-]/g, '-')
+                    .replace(/--+/g, '-')
+                    .replace(/^-|-$/g, '')
+                    .substring(0, 50);
+                  setDealerSlug(formatted);
+                }}
+                maxLength={50}
+              />
+              <p className="text-xs text-muted-foreground">
+                Used for organizing Content-Migration folders by dealer. If not provided, will be auto-detected from URL domain.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>

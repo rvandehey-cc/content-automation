@@ -91,3 +91,14 @@ Your stack:
 
 This is a common and recommended pattern - Supabase for hosting + auth, Prisma for type-safe database access.
 
+## Schema Change History
+
+### 2026-01-20: Added `dealerSlug` to SiteProfile
+- **Field**: `dealerSlug` (optional, max 50 chars)
+- **Purpose**: Organize Content-Migration folders by dealer instead of run ID
+- **Usage**: Auto-detected from URL if not provided in site profile
+- **Migration**: Applied via `npx prisma db push`
+
+**Impact**: All site profiles now support a dealer slug field for better organization of output files.
+
+

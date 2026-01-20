@@ -12,8 +12,7 @@ import { handleError } from '../utils/errors.js';
 import { prisma } from '../lib/db/client.js';
 import { writeFile } from '../utils/filesystem.js';
 import { cleanupOutputDirectories } from '../utils/cleanup-output.js';
-import { ensureContentMigrationFolders, copyToContentMigration } from '../utils/content-migration-path.js';
-import path from 'path';
+import { ensureContentMigrationFolders, copyToContentMigration, extractDealerSlug } from '../utils/content-migration-path.js';
 import fs from 'fs-extra';
 
 /**
@@ -214,6 +213,18 @@ export class RunExecutor {
       await this._updateRunStatus('running', { startedAt: new Date() });
       await this._log('info', 'executor', 'Run started', { urlsCount: urls.length });
 
+      // Determine dealer slug for Content-Migration folder organization
+      let dealerSlug = siteProfile?.dealerSlug;
+      if (!dealerSlug && urls.length > 0) {
+        try {
+          dealerSlug = extractDealerSlug(urls[0]);
+          await this._log('info', 'executor', `Auto-detected dealer: ${dealerSlug}`, { url: urls[0] });
+        } catch (error) {
+          await this._log('warn', 'executor', `Failed to auto-detect dealer slug: ${error.message}`);
+          dealerSlug = 'unknown-dealer';
+        }
+      }
+
       let results = {
         urlsScraped: 0,
         urlsFailed: 0,
@@ -253,15 +264,15 @@ export class RunExecutor {
         results.imagesDownloaded = imageResults.successful || 0;
         results.imagesFailed = imageResults.errors?.length || 0;
         
-        // Copy images to Content-Migration folder
+        // Copy images to Content-Migration folder (dealer-based organization)
         try {
-          const migrationPaths = await ensureContentMigrationFolders(this.runId);
+          const migrationPaths = await ensureContentMigrationFolders(dealerSlug);
           const imagesSourcePath = config.resolvePath('output/images');
           
           if (await fs.pathExists(imagesSourcePath)) {
-            await copyToContentMigration(imagesSourcePath, migrationPaths.runImages, true);
-            imagesMigrationPath = migrationPaths.runImages;
-            await this._log('info', 'image-downloader', `Images copied to Content-Migration: ${migrationPaths.runImages}`);
+            await copyToContentMigration(imagesSourcePath, migrationPaths.images, true);
+            imagesMigrationPath = migrationPaths.images;
+            await this._log('info', 'image-downloader', `Images copied to Content-Migration: ${migrationPaths.images}`);
           }
         } catch (error) {
           await this._log('warn', 'image-downloader', `Failed to copy images to Content-Migration: ${error.message}`);
@@ -306,17 +317,15 @@ export class RunExecutor {
         results.postsDetected = csvResults.posts || 0;
         results.pagesDetected = csvResults.pages || 0;
         
-        // Copy CSV to Content-Migration folder
+        // Copy CSV to Content-Migration folder (dealer-based organization)
         try {
-          const migrationPaths = await ensureContentMigrationFolders(this.runId);
+          const migrationPaths = await ensureContentMigrationFolders(dealerSlug);
           const csvSourcePath = config.resolvePath('output/wp-ready/wordpress-import.csv');
-          const dateStr = new Date().toISOString().split('T')[0];
-          const csvDestPath = path.join(migrationPaths.runCsv, `wordpress-import-${dateStr}.csv`);
           
           if (await fs.pathExists(csvSourcePath)) {
-            await copyToContentMigration(csvSourcePath, csvDestPath);
-            csvMigrationPath = csvDestPath;
-            await this._log('info', 'csv-generator', `CSV copied to Content-Migration: ${csvDestPath}`);
+            await copyToContentMigration(csvSourcePath, migrationPaths.csvFile);
+            csvMigrationPath = migrationPaths.csvFile;
+            await this._log('info', 'csv-generator', `CSV copied to Content-Migration: ${migrationPaths.csvFile}`);
           }
         } catch (error) {
           await this._log('warn', 'csv-generator', `Failed to copy CSV to Content-Migration: ${error.message}`);
@@ -348,6 +357,15 @@ export class RunExecutor {
         const updatedSnapshot = {
           ...currentRun.configSnapshot,
         };
+        
+        // Add dealer slug and Content-Migration paths
+        if (dealerSlug) {
+          updatedSnapshot.dealerSlug = dealerSlug;
+          
+          // Calculate base path for display
+          const migrationPaths = await ensureContentMigrationFolders(dealerSlug);
+          updatedSnapshot.contentMigrationBasePath = migrationPaths.dealerBase;
+        }
         
         // Add Content-Migration paths if they were set
         if (imagesMigrationPath) {
