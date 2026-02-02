@@ -33,7 +33,7 @@ export function AuthButton() {
 
   if (!user) {
     return (
-      <Button asChild variant="outline">
+      <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white">
         <a href="/auth/login">Login</a>
       </Button>
     )

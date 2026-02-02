@@ -54,73 +54,68 @@ The Content Automation Pipeline provides:
 
 - Node.js 18 or higher
 - npm or yarn package manager
-- Supabase account (for database and authentication)
-- Docker and Docker Compose (optional, for Redis job queue)
+- Supabase account (database and authentication are already configured - you'll receive connection details)
 
 ### Installation
+
+## Quick Start
+
+[script]
 
 1. **Clone the repository:**
 
 ```bash
-git clone https://github.com/vande012/wp-content-automation
-cd wp-content-automation
+git clone https://github.com/vande012/content-automation
+cd content-automation
 ```
 
-2. **Install dependencies:**
+2. **Install Node.js dependencies:**
 
 ```bash
 npm install
 ```
 
-3. **Install Playwright browsers:**
+> **Note:** This automatically installs Playwright browsers and generates the Prisma client. First install may take 2-3 minutes.
+
+3. **Install ImageMagick (optional but recommended):**
+
+ImageMagick enables automatic AVIF → JPEG image conversion for WordPress compatibility.
+
+**macOS:**
 
 ```bash
-npm run install-browsers
+brew install imagemagick
 ```
+
+**Verify installation:**
+
+```bash
+convert -version
+```
+
+> **Note:** The system works without ImageMagick but will skip AVIF image conversion. You'll see a warning if AVIF images are encountered.
 
 4. **Configure environment variables:**
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root (or copy from `.env.example`):
 
 ```env
-# Database Configuration (Supabase PostgreSQL)
-DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?schema=public"
-
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-REF].supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=[YOUR-ANON-KEY]
-SUPABASE_URL=https://[PROJECT-REF].supabase.co
-
-# Redis Configuration (for Docker)
-REDIS_URL="redis://localhost:6379"
-REDIS_PORT=6379
-
-# Application Configuration
-NODE_ENV=development
-APP_URL=http://localhost:3000
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+# Supabase Configuration (you'll receive these from your admin)
+DATABASE_URL="postgresql://postgres.ggrucwtukdpbvujxffbc:[PROJECT-PW]@aws-1-us-east-2.pooler.supabase.com:5432/postgres"
+DB_PASSWORD=[PROJECT-PW]
 ```
 
-5. **Set up the database:**
+> **Note:** Replace `[PROJECT-PW]` with your actual Supabase credentials.
+
+5. **Start the web dashboard:**
 
 ```bash
-# Generate Prisma Client
-npm run db:generate
-
-# Run migrations
-npm run db:migrate
-```
-
-6. **Start services:**
-
-```bash
-# Start Next.js development server
 npm run dev:web
 ```
 
-7. **Access the dashboard:**
+6. **Access the dashboard:**
 
-Open http://localhost:3000 in your browser.
+Open http://localhost:3000 in your browser and sign up with your email.
 
 ## Using the Web Dashboard
 
@@ -136,16 +131,16 @@ Open http://localhost:3000 in your browser.
 
 Note: This is not always needed, but can be helpful if competitor site has elements that need to be manually identified for removal. Try one post/page test run first or select an existing profile based on the competitor site. (Dealer.com etc.)
 
-   - Click "Site Profiles" in the navigation
-   - Click "Create New Profile"
-   - Enter a name and description for your site
-   - Configure scraping settings:
-     - Content selectors (CSS selectors to find main content)
-     - Blog post selectors (for date, title, content extraction)
-     - Custom remove selectors (elements to exclude during cleaning)
-     - WordPress settings (dealer slug, image year/month)
-     - Image processing settings
-   - Click "Save Profile"
+- Click "Site Profiles" in the navigation
+- Click "Create New Profile"
+- Enter a name and description for your site
+- Configure scraping settings:
+  - Content selectors (CSS selectors to find main content)
+  - Blog post selectors (for date, title, content extraction)
+  - Custom remove selectors (elements to exclude during cleaning)
+  - WordPress settings (dealer slug, image year/month)
+  - Image processing settings
+- Click "Save Profile"
 
 ### Starting an Automation Run
 
@@ -159,8 +154,8 @@ Note: This is not always needed, but can be helpful if competitor site has eleme
    - **Content Type**: Select "Post" for blog articles or "Page" for static pages
    - **Blog Post Selectors** (if content type is "Post"):
      - Date selector: CSS selector to find publication date - automatic detection usually works
-     - Content selector: CSS selector to find main content - 
-     automatic detection usually works
+     - Content selector: CSS selector to find main content -
+       automatic detection usually works
    - **Custom Remove Selectors**: CSS selectors for elements to remove during cleaning (one per line), may be needed depending on site type and structure.
    - **WordPress Settings**:
      - Dealer slug: Used in image paths
@@ -219,11 +214,13 @@ When a run completes, files are automatically organized by dealer:
 - **Images**: `~/Desktop/Content-Migration/{dealer-slug}/images/YYYY-MM-DD/`
 
 The `dealer-slug` is:
+
 - **From Site Profile**: If configured in the site profile's "Dealer Slug" field
 - **Auto-detected**: Extracted from the website domain (e.g., `www.zimbricknissan.com` → `zimbricknissan`)
 - **Fallback**: Uses `unknown-dealer` if detection fails
 
 **Benefits of Dealer-Based Organization:**
+
 - Easily identify which dealer's content is in each folder
 - Multiple runs for the same dealer are organized together
 - CSV files include dates to prevent overwrites
@@ -304,6 +301,7 @@ The system follows a service-based architecture with clear separation of concern
 The processor implements an aggressive cleaning approach optimized for WordPress:
 
 **Removes:**
+
 - ALL `class` and `id` attributes
 - Third-party tracking attributes
 - Blog template elements (navigation, dates, sidebar)
@@ -313,12 +311,14 @@ The processor implements an aggressive cleaning approach optimized for WordPress
 - Custom user-specified elements (via CSS selectors)
 
 **Preserves:**
+
 - `style` attributes for formatting
 - Essential link attributes (`href`, `target`)
 - Image attributes (`src`, `alt`, `width`, `height`)
 - Table structure attributes
 
 **Content Type Detection:**
+
 - Uses explicit user selection (from UI) when available
 - Falls back to automatic detection using:
   - URL patterns (blog, post, article keywords)
@@ -326,6 +326,7 @@ The processor implements an aggressive cleaning approach optimized for WordPress
   - Content structure analysis
 
 **Date Handling:**
+
 - **Posts**: Extracts original publication date from article if available, otherwise uses current date
 - **Pages**: Uses yesterday's date to ensure immediate publication (avoids WordPress scheduling)
 
@@ -355,8 +356,8 @@ The system uses Supabase Auth for secure multi-user access:
 ### Prerequisites for Development
 
 - Node.js 18+
-- PostgreSQL (via Supabase)
-- Docker and Docker Compose (for Redis)
+- PostgreSQL (via Supabase - connection details provided)
+- Docker and Docker Compose (optional - only needed for Redis job queue)
 - Git
 
 ### Development Installation
@@ -364,74 +365,65 @@ The system uses Supabase Auth for secure multi-user access:
 1. **Clone and install:**
 
 ```bash
-git clone https://github.com/vande012/wp-content-automation
-cd wp-content-automation
+git clone https://github.com/rvandehey-cc/content-automation
+cd content-automation
 npm install
-npm run install-browsers
 ```
+
+> **Note:** Playwright browsers and Prisma client are automatically installed during `npm install`.
 
 2. **Set up environment:**
 
-Copy `.env.example` to `.env` and configure:
+Copy `.env.example` to `.env` and configure with your Supabase credentials:
 
 ```env
-# Database (Supabase)
-DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres?schema=public"
-
-# Supabase Auth
+# Supabase Configuration (required)
+DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres"
 NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-REF].supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=[YOUR-ANON-KEY]
-SUPABASE_URL=https://[PROJECT-REF].supabase.co
 
-# Redis (Docker)
-REDIS_URL="redis://localhost:6379"
+# Optional: Redis (only if using job queue features)
+# REDIS_URL="redis://localhost:6379"
 
-# Development
-NODE_ENV=development
+# Optional: Development settings (usually not needed)
+# NODE_ENV=development
 ```
 
-3. **Initialize database:**
+> **Note:** Prisma client is automatically generated during `npm install`. You don't need to run migrations (`db:migrate`) - the Supabase database is already set up with the correct schema.
+
+4. **Start the development server:**
 
 ```bash
-npm run db:generate
-npm run db:migrate
-```
-
-4. **Start development servers:**
-
-   ```bash
-# Terminal 1: Start Redis
-   npm run docker:up
-   
-# Terminal 2: Start Next.js dev server
 npm run dev:web
 ```
+
+> **Note:** Redis/Docker is only needed for advanced job queue features. The system works fine without it for basic content automation.
 
 ### Development Commands
 
 ```bash
 # Web Dashboard
-npm run dev:web          # Start Next.js dev server
-npm run build            # Build for production
-npm run start:web        # Start production server
-npm run lint:web         # Lint Next.js code
+npm run dev:web   # Start Next.js dev server
+npm run build     # Build for production
+npm run start:web # Start production server
+npm run lint:web  # Lint Next.js code
 
 # Database
-npm run db:generate      # Generate Prisma Client
-npm run db:migrate       # Run migrations
+npm run db:generate      # Generate Prisma Client (required)
+npm run db:migrate       # Run migrations (only needed if you're developing schema changes)
 npm run db:studio        # Open Prisma Studio (database GUI)
-npm run db:migrate:reset # Reset database (development only)
+npm run db:migrate:reset # Reset database (only for local development/schema changes)
 
 # CLI (Legacy)
-npm start                # Run full automation pipeline
-npm run scrape           # Run scraper only
-npm run process          # Run processor only
-npm run clean            # Clear output directories
+npm start       # Run full automation pipeline
+npm run scrape  # Run scraper only
+npm run process # Run processor only
+npm run clean   # Clear output directories
 
 # Testing
-npm test                 # Run test suite
-npm run test:watch       # Run tests in watch mode
-npm run test:coverage    # Generate coverage report
+npm test              # Run test suite
+npm run test:watch    # Run tests in watch mode
+npm run test:coverage # Generate coverage report
 ```
 
 ### Project Structure
@@ -535,29 +527,34 @@ The system supports explicit content type selection:
 ### Web Dashboard Issues
 
 **"Database connection failed"**
+
 - Verify `DATABASE_URL` in `.env` is correct
 - Ensure Supabase project is active (not paused)
 - Check network connectivity to Supabase
 - Run `npm run db:generate` to regenerate Prisma Client
 
 **"Authentication not working"**
+
 - Verify `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env`
 - Check Supabase Auth settings (email confirmation may need to be disabled for dev)
 - Clear browser cookies and try again
 - Check browser console for errors
 
 **"Run not found" errors**
+
 - Ensure database migrations are up to date: `npm run db:migrate`
 - Check that run was created successfully in database
 - Verify user has permission to view the run
 
 **"CSV download fails"**
+
 - Check that CSV file exists in `output/wp-ready/`
 - Verify file permissions
 - Check server logs for errors
 - Ensure Content-Migration folder exists and is writable
 
 **"Content-Migration folder not created"**
+
 - Check file system permissions
 - Verify `CONTENT_MIGRATION_PATH` if using custom path
 - Ensure parent directory exists
@@ -565,20 +562,24 @@ The system supports explicit content type selection:
 ### CLI Issues
 
 **"No URLs to scrape"**
+
 - Check `data/urls.txt` exists and contains valid URLs
 - Ensure URLs are one per line with no extra spaces
 
 **"Cloudflare blocked request"**
+
 - System includes bypass techniques
 - Reduce concurrency or add delays if persistent
 - Check if site requires additional anti-bot measures
 
 **"Content type detection incorrect"**
+
 - Review custom selectors in site profile or CLI setup
 - Use browser dev tools to find unique class names
 - Update selectors in site profile configuration
 
 **"Images not downloading"**
+
 - Verify images are enabled in configuration
 - Check network connectivity
 - Review image download logs for specific errors
@@ -618,6 +619,30 @@ This project uses automated git hooks to enforce code quality:
 - Integration tests for service interactions
 - End-to-end tests for complete workflows
 - Mock external dependencies appropriately
+
+## Environment Variables Reference
+
+For your convenience, here's a template `.env.example` file you can create:
+
+```env
+# Supabase Configuration
+# Database URL - Replace with your Supabase PostgreSQL connection string
+DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres"
+
+# Supabase Public Keys - Replace with your project credentials
+NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-REF].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[YOUR-ANON-KEY]
+
+# Optional: Application Configuration
+# NODE_ENV=development
+# NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Optional: Redis Configuration (for advanced job queue features)
+# REDIS_URL="redis://localhost:6379"
+# REDIS_PORT=6379
+```
+
+> **Note:** Only the Supabase configuration is required. Redis and other optional settings are for advanced features.
 
 ## Expansion & Customization
 

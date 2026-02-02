@@ -30,6 +30,7 @@
     "build": "next build",
     "start:web": "next start",
     "lint:web": "eslint \"src/app/**/*.{ts,tsx}\" \"src/components/**/*.{ts,tsx,js,jsx}\" \"src/lib/**/*.{ts,tsx,js,jsx}\" \"src/middleware.js\" --max-warnings=-1",
+    "postinstall": "prisma generate && playwright install",
     "prepare": "husky",
     "release": "standard-version",
     "release:minor": "standard-version --release-as minor",
