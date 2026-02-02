@@ -50,72 +50,31 @@ The Content Automation Pipeline provides:
 
 ## Quick Start
 
-### Prerequisites
-
-- Node.js 18 or higher
-- npm or yarn package manager
-- Supabase account (database and authentication are already configured - you'll receive connection details)
-
-### Installation
-
-## Quick Start
-
-[script]
-
-1. **Clone the repository:**
-
 ```bash
-git clone https://github.com/vande012/content-automation
+git clone https://github.com/rvandehey-cc/content-automation.git
 cd content-automation
+bash setup.sh
 ```
 
-2. **Install Node.js dependencies:**
+That's it. The setup script handles everything:
+- Installs Homebrew, Node.js, and dependencies
+- Generates Prisma client and installs Playwright browsers
+- Creates `.env` with database credentials (fetched automatically or prompted)
+- Configures shell PATH and aliases
+- Validates the installation
 
-```bash
-npm install
-```
+Once complete, open http://localhost:3000 and sign up with your email.
 
-> **Note:** This automatically installs Playwright browsers and generates the Prisma client. First install may take 2-3 minutes.
-
-3. **Install ImageMagick (optional but recommended):**
-
-ImageMagick enables automatic AVIF → JPEG image conversion for WordPress compatibility.
-
-**macOS:**
-
-```bash
-brew install imagemagick
-```
-
-**Verify installation:**
-
-```bash
-convert -version
-```
-
-> **Note:** The system works without ImageMagick but will skip AVIF image conversion. You'll see a warning if AVIF images are encountered.
-
-4. **Configure environment variables:**
-
-Create a `.env` file in the project root (or copy from `.env.example`):
-
-```env
-# Supabase Configuration (you'll receive these from your admin)
-DATABASE_URL="postgresql://postgres.ggrucwtukdpbvujxffbc:[PROJECT-PW]@aws-1-us-east-2.pooler.supabase.com:5432/postgres"
-DB_PASSWORD=[PROJECT-PW]
-```
-
-> **Note:** Replace `[PROJECT-PW]` with your actual Supabase credentials.
-
-5. **Start the web dashboard:**
+### Running After Setup
 
 ```bash
 npm run dev:web
 ```
 
-6. **Access the dashboard:**
-
-Open http://localhost:3000 in your browser and sign up with your email.
+Or use the global command (available after restarting terminal):
+```bash
+content-automation
+```
 
 ## Using the Web Dashboard
 
@@ -353,49 +312,13 @@ The system uses Supabase Auth for secure multi-user access:
 
 ## Development Setup
 
-### Prerequisites for Development
-
-- Node.js 18+
-- PostgreSQL (via Supabase - connection details provided)
-- Docker and Docker Compose (optional - only needed for Redis job queue)
-- Git
-
-### Development Installation
-
-1. **Clone and install:**
-
 ```bash
-git clone https://github.com/rvandehey-cc/content-automation
+git clone https://github.com/rvandehey-cc/content-automation.git
 cd content-automation
-npm install
+bash setup.sh
 ```
 
-> **Note:** Playwright browsers and Prisma client are automatically installed during `npm install`.
-
-2. **Set up environment:**
-
-Copy `.env.example` to `.env` and configure with your Supabase credentials:
-
-```env
-# Supabase Configuration (required)
-DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres"
-NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-REF].supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=[YOUR-ANON-KEY]
-
-# Optional: Redis (only if using job queue features)
-# REDIS_URL="redis://localhost:6379"
-
-# Optional: Development settings (usually not needed)
-# NODE_ENV=development
-```
-
-> **Note:** Prisma client is automatically generated during `npm install`. You don't need to run migrations (`db:migrate`) - the Supabase database is already set up with the correct schema.
-
-4. **Start the development server:**
-
-```bash
-npm run dev:web
-```
+The setup script installs all prerequisites, dependencies, and configures credentials automatically.
 
 > **Note:** Redis/Docker is only needed for advanced job queue features. The system works fine without it for basic content automation.
 
