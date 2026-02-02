@@ -112,3 +112,9 @@ automation_events:
       - update package-lock.json from dependency refresh
 
       Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+  - timestamp: '2026-02-02T23:11:16.688Z'
+    event: commit_made
+    message: |-
+      docs: simplify readme to use setup.sh for 0-100 install
+
+      Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
