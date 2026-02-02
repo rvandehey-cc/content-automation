@@ -84,3 +84,6 @@ automation_events:
   - timestamp: '2026-01-20T22:28:18.866Z'
     event: commit_made
     message: 'feat(core): implement dealer-based content-migration folder structure'
+  - timestamp: '2026-02-02T21:16:01.968Z'
+    event: commit_made
+    message: 'chore: clear readme, easier install'
