@@ -58,6 +58,10 @@ The Content Automation Pipeline provides:
 
 ### Installation
 
+## Quick Start
+
+[script]
+
 1. **Clone the repository:**
 
 ```bash
@@ -78,11 +82,13 @@ npm install
 ImageMagick enables automatic AVIF → JPEG image conversion for WordPress compatibility.
 
 **macOS:**
+
 ```bash
 brew install imagemagick
 ```
 
 **Verify installation:**
+
 ```bash
 convert -version
 ```
@@ -125,16 +131,16 @@ Open http://localhost:3000 in your browser and sign up with your email.
 
 Note: This is not always needed, but can be helpful if competitor site has elements that need to be manually identified for removal. Try one post/page test run first or select an existing profile based on the competitor site. (Dealer.com etc.)
 
-   - Click "Site Profiles" in the navigation
-   - Click "Create New Profile"
-   - Enter a name and description for your site
-   - Configure scraping settings:
-     - Content selectors (CSS selectors to find main content)
-     - Blog post selectors (for date, title, content extraction)
-     - Custom remove selectors (elements to exclude during cleaning)
-     - WordPress settings (dealer slug, image year/month)
-     - Image processing settings
-   - Click "Save Profile"
+- Click "Site Profiles" in the navigation
+- Click "Create New Profile"
+- Enter a name and description for your site
+- Configure scraping settings:
+  - Content selectors (CSS selectors to find main content)
+  - Blog post selectors (for date, title, content extraction)
+  - Custom remove selectors (elements to exclude during cleaning)
+  - WordPress settings (dealer slug, image year/month)
+  - Image processing settings
+- Click "Save Profile"
 
 ### Starting an Automation Run
 
@@ -148,8 +154,8 @@ Note: This is not always needed, but can be helpful if competitor site has eleme
    - **Content Type**: Select "Post" for blog articles or "Page" for static pages
    - **Blog Post Selectors** (if content type is "Post"):
      - Date selector: CSS selector to find publication date - automatic detection usually works
-     - Content selector: CSS selector to find main content - 
-     automatic detection usually works
+     - Content selector: CSS selector to find main content -
+       automatic detection usually works
    - **Custom Remove Selectors**: CSS selectors for elements to remove during cleaning (one per line), may be needed depending on site type and structure.
    - **WordPress Settings**:
      - Dealer slug: Used in image paths
@@ -208,11 +214,13 @@ When a run completes, files are automatically organized by dealer:
 - **Images**: `~/Desktop/Content-Migration/{dealer-slug}/images/YYYY-MM-DD/`
 
 The `dealer-slug` is:
+
 - **From Site Profile**: If configured in the site profile's "Dealer Slug" field
 - **Auto-detected**: Extracted from the website domain (e.g., `www.zimbricknissan.com` → `zimbricknissan`)
 - **Fallback**: Uses `unknown-dealer` if detection fails
 
 **Benefits of Dealer-Based Organization:**
+
 - Easily identify which dealer's content is in each folder
 - Multiple runs for the same dealer are organized together
 - CSV files include dates to prevent overwrites
@@ -293,6 +301,7 @@ The system follows a service-based architecture with clear separation of concern
 The processor implements an aggressive cleaning approach optimized for WordPress:
 
 **Removes:**
+
 - ALL `class` and `id` attributes
 - Third-party tracking attributes
 - Blog template elements (navigation, dates, sidebar)
@@ -302,12 +311,14 @@ The processor implements an aggressive cleaning approach optimized for WordPress
 - Custom user-specified elements (via CSS selectors)
 
 **Preserves:**
+
 - `style` attributes for formatting
 - Essential link attributes (`href`, `target`)
 - Image attributes (`src`, `alt`, `width`, `height`)
 - Table structure attributes
 
 **Content Type Detection:**
+
 - Uses explicit user selection (from UI) when available
 - Falls back to automatic detection using:
   - URL patterns (blog, post, article keywords)
@@ -315,6 +326,7 @@ The processor implements an aggressive cleaning approach optimized for WordPress
   - Content structure analysis
 
 **Date Handling:**
+
 - **Posts**: Extracts original publication date from article if available, otherwise uses current date
 - **Pages**: Uses yesterday's date to ensure immediate publication (avoids WordPress scheduling)
 
@@ -391,10 +403,10 @@ npm run dev:web
 
 ```bash
 # Web Dashboard
-npm run dev:web          # Start Next.js dev server
-npm run build            # Build for production
-npm run start:web        # Start production server
-npm run lint:web         # Lint Next.js code
+npm run dev:web   # Start Next.js dev server
+npm run build     # Build for production
+npm run start:web # Start production server
+npm run lint:web  # Lint Next.js code
 
 # Database
 npm run db:generate      # Generate Prisma Client (required)
@@ -403,15 +415,15 @@ npm run db:studio        # Open Prisma Studio (database GUI)
 npm run db:migrate:reset # Reset database (only for local development/schema changes)
 
 # CLI (Legacy)
-npm start                # Run full automation pipeline
-npm run scrape           # Run scraper only
-npm run process          # Run processor only
-npm run clean            # Clear output directories
+npm start       # Run full automation pipeline
+npm run scrape  # Run scraper only
+npm run process # Run processor only
+npm run clean   # Clear output directories
 
 # Testing
-npm test                 # Run test suite
-npm run test:watch       # Run tests in watch mode
-npm run test:coverage    # Generate coverage report
+npm test              # Run test suite
+npm run test:watch    # Run tests in watch mode
+npm run test:coverage # Generate coverage report
 ```
 
 ### Project Structure
@@ -515,29 +527,34 @@ The system supports explicit content type selection:
 ### Web Dashboard Issues
 
 **"Database connection failed"**
+
 - Verify `DATABASE_URL` in `.env` is correct
 - Ensure Supabase project is active (not paused)
 - Check network connectivity to Supabase
 - Run `npm run db:generate` to regenerate Prisma Client
 
 **"Authentication not working"**
+
 - Verify `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env`
 - Check Supabase Auth settings (email confirmation may need to be disabled for dev)
 - Clear browser cookies and try again
 - Check browser console for errors
 
 **"Run not found" errors**
+
 - Ensure database migrations are up to date: `npm run db:migrate`
 - Check that run was created successfully in database
 - Verify user has permission to view the run
 
 **"CSV download fails"**
+
 - Check that CSV file exists in `output/wp-ready/`
 - Verify file permissions
 - Check server logs for errors
 - Ensure Content-Migration folder exists and is writable
 
 **"Content-Migration folder not created"**
+
 - Check file system permissions
 - Verify `CONTENT_MIGRATION_PATH` if using custom path
 - Ensure parent directory exists
@@ -545,20 +562,24 @@ The system supports explicit content type selection:
 ### CLI Issues
 
 **"No URLs to scrape"**
+
 - Check `data/urls.txt` exists and contains valid URLs
 - Ensure URLs are one per line with no extra spaces
 
 **"Cloudflare blocked request"**
+
 - System includes bypass techniques
 - Reduce concurrency or add delays if persistent
 - Check if site requires additional anti-bot measures
 
 **"Content type detection incorrect"**
+
 - Review custom selectors in site profile or CLI setup
 - Use browser dev tools to find unique class names
 - Update selectors in site profile configuration
 
 **"Images not downloading"**
+
 - Verify images are enabled in configuration
 - Check network connectivity
 - Review image download logs for specific errors
