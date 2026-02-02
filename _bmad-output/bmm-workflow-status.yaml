@@ -93,27 +93,9 @@ automation_events:
   - timestamp: '2026-02-02T21:43:49.501Z'
     event: commit_made
     message: 'chore: fixed vulnerability'
-  - timestamp: '2026-02-02T22:31:30.665Z'
+  - timestamp: '2026-02-02T21:46:09.967Z'
     event: commit_made
-    message: |-
-      feat: add robust setup.sh script with github actions credential fetching
-
-      - create setup.sh with resilient patterns from auto-sbm:
-        - logging to setup.log with set -e error handling
-        - git pull with conflict resolution (rebase → merge → hard reset)
-        - node.js version check with nvm fallback
-        - npm certificate issue handling (multiple fallback strategies)
-        - shell configuration with idempotent markers
-        - global wrapper script at ~/.local/bin/content-automation
-        - validation checks for prisma client and playwright
-
-      - add github actions workflow for supabase credential fetching:
-        - fetch-supabase-credentials.yml exports secrets as artifacts
-        - setup.sh polls workflow and downloads credentials automatically
-        - falls back to interactive prompt if workflow unavailable
-
-      - update .env.example with placeholder markers:
-        - {NEXT_PUBLIC_SUPABASE_ANON_KEY} and {DB_PASSWORD}
-        - enables setup.sh to detect missing credentials
-
-      Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+    message: 'chore: remove image-downloader.test.js from version control'
+  - timestamp: '2026-02-02T22:03:04.779Z'
+    event: commit_made
+    message: 'feat: corrected auth flow, fixed login button'
