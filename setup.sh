@@ -163,13 +163,49 @@ function check_optional_tools() {
   fi
 }
 
+function setup_github_auth() {
+  log "Checking GitHub CLI authentication..."
+
+  if ! command -v gh &> /dev/null; then
+    error "GitHub CLI (gh) is required but not installed."
+    error "Install with: brew install gh"
+    return 1
+  fi
+
+  if ! gh auth status &> /dev/null; then
+    echo ""
+    echo "=================================================="
+    echo "  GitHub CLI Authentication Required"
+    echo "=================================================="
+    echo ""
+    echo "GitHub CLI must be authenticated to fetch credentials."
+    echo "This will open a browser for GitHub login."
+    echo ""
+
+    if [ -t 0 ] && [ -t 1 ]; then
+      gh auth login -p https -w
+      if gh auth status &> /dev/null; then
+        log "GitHub CLI authenticated successfully"
+      else
+        warn "GitHub CLI authentication failed. Credential fetching may not work."
+      fi
+    else
+      warn "Non-interactive mode. Please run 'gh auth login' manually."
+    fi
+  else
+    log "GitHub CLI already authenticated"
+  fi
+}
+
 # Only run Homebrew installation on macOS
 if [[ "$OSTYPE" == "darwin"* ]]; then
   install_homebrew
   install_required_tools
   check_optional_tools
+  setup_github_auth
 else
   warn "Non-macOS system detected. Please ensure git, gh, and node 18+ are installed manually."
+  setup_github_auth
 fi
 
 # ============================================================================
@@ -838,33 +874,50 @@ echo "=================================================="
 echo ""
 echo "All steps completed successfully!"
 echo ""
-echo "IMPORTANT: Restart your terminal or run:"
-echo "   source ~/.zshrc"
-echo ""
-echo "Quick start commands:"
-echo "   npm run dev:web       # Start the Next.js development server"
-echo "   npm run scrape        # Run the scraper"
-echo "   npm run process       # Process scraped content"
-echo "   npm run db:studio     # Open Prisma Studio"
-echo ""
-echo "Global command available:"
-echo "   content-automation    # Runs npm run dev:web by default"
-echo "   content-automation scrape"
-echo "   content-automation process"
-echo ""
-
-# Check if credentials are still missing
-if grep -q "\[PROJECT-PW\]" .env 2>/dev/null || grep -q "{DB_PASSWORD}" .env 2>/dev/null; then
-  echo "WARNING: Database credentials still contain placeholders."
-  echo "Please update .env with valid Supabase credentials."
-  echo ""
-fi
-
-echo "Documentation: README.md"
-echo "Setup completed at: $(date)"
-echo ""
 
 touch .setup_complete
 log ".setup_complete marker file created."
 
-exit 0
+# Check if credentials are still missing - if so, don't start server
+if grep -q "\[PROJECT-PW\]" .env 2>/dev/null || grep -q "{DB_PASSWORD}" .env 2>/dev/null; then
+  echo "WARNING: Database credentials still contain placeholders."
+  echo "Please update .env with valid Supabase credentials, then run:"
+  echo "   npm run dev:web"
+  echo ""
+  echo "Documentation: README.md"
+  exit 0
+fi
+
+# Start the development server and open browser
+echo "Starting development server..."
+echo ""
+
+# Start npm run dev:web in background
+npm run dev:web &
+DEV_PID=$!
+
+# Wait for server to be ready (check for port 3000)
+echo "Waiting for server to start..."
+for i in {1..30}; do
+  if curl -s http://localhost:3000 > /dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+# Open browser to signup page
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  open "http://localhost:3000/auth/signup"
+elif command -v xdg-open &> /dev/null; then
+  xdg-open "http://localhost:3000/auth/signup"
+fi
+
+echo ""
+echo "Browser opened to http://localhost:3000/auth/signup"
+echo "Development server running (PID: $DEV_PID)"
+echo ""
+echo "Press Ctrl+C to stop the server."
+echo ""
+
+# Wait for the dev server process
+wait $DEV_PID
