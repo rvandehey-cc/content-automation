@@ -82,14 +82,6 @@ ImageMagick enables automatic AVIF → JPEG image conversion for WordPress compa
 brew install imagemagick
 ```
 
-**Linux (Ubuntu/Debian):**
-```bash
-sudo apt update && sudo apt install imagemagick
-```
-
-**Windows:**
-Download and install from: https://imagemagick.org/script/download.php
-
 **Verify installation:**
 ```bash
 convert -version
