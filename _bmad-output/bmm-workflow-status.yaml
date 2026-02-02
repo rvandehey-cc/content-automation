@@ -118,3 +118,15 @@ automation_events:
       docs: simplify readme to use setup.sh for 0-100 install
 
       Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+  - timestamp: '2026-02-02T23:14:34.262Z'
+    event: commit_made
+    message: |-
+      feat(setup): add gh auth check and auto-launch dev server with browser
+
+      - add setup_github_auth() to verify/prompt gh cli authentication
+      - gh auth required before credential fetching can work
+      - auto-start npm run dev:web after successful setup
+      - auto-open http://localhost:3000/auth/signup in default browser
+      - skip auto-launch if credentials still have placeholders
+
+      Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
