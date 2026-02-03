@@ -50,6 +50,21 @@ The Content Automation Pipeline provides:
 
 ## Quick Start
 
+Install ImageMagick (optional but recommended):
+ImageMagick enables automatic AVIF → JPEG image conversion for WordPress compatibility.
+
+macOS:
+
+```bash
+brew install imagemagick
+```
+Verify installation:
+
+```bash
+convert -version
+```
+Note: The system works without ImageMagick but will skip AVIF image conversion. You'll see a warning if AVIF images are encountered.
+
 ```bash
 git clone https://github.com/rvandehey-cc/content-automation.git
 cd content-automation
