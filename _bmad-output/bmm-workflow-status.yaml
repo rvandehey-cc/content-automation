@@ -130,3 +130,6 @@ automation_events:
       - skip auto-launch if credentials still have placeholders
 
       Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+  - timestamp: '2026-02-03T19:04:44.361Z'
+    event: commit_made
+    message: 'chore: update to readme with imagemagick instructions'
